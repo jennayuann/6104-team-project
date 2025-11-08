@@ -12,6 +12,11 @@ Looking at the grade breakdown for this project, I believe earning a high grade 
 
 Every week, I'll expect myself to spend around 10-12 hours on the project, but this may also depend on what I'm working. I will expect myself to complete tasks assigned to me that week and meet deadlines. I will be aiming for a grade that is at least a B, hopefully an A.
 
+### Cole
+
+Every week, I expect myself to put in around 8 to 10 hours on the project, but this will also depend on my responsibilities for that week. I have specifically budgeted that amount of time for this semester. I hope to be able to use this as a learning opportunity, but I am really aiming for at least a B, hopefully in the A/B range.
+
+
 ## 2. Personal goals for each team member (building a great app? learning a particular skill?);
 
 ### Jing:
