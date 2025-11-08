@@ -8,6 +8,10 @@ My expected level of achievement for myself would be contributing to some parts 
 
 Looking at the grade breakdown for this project, I believe earning a high grade in the A/B range is very attainable since the breakdown emphasizes incremental progress. Therefore, I am aiming for an A to B range for this project. As for time commitment, it will likely vary week to week depending on the tasks I’m responsible for, but based on Project 1, I’m estimating around 12–14 hours per week.
 
+### Ivy
+
+Every week, I'll expect myself to spend around 10-12 hours on the project, but this may also depend on what I'm working. I will expect myself to complete tasks assigned to me that week and meet deadlines. I will be aiming for a grade that is at least a B, hopefully an A.
+
 ## 2. Personal goals for each team member (building a great app? learning a particular skill?);
 
 ### Jing:
@@ -23,9 +27,11 @@ My goal is to gain experience building a complete project from start to finish, 
 My goal for this fullstack project is to gain more experience working on the entire stack while improving my engineering practices. I want to focus on designing modular concepts that make the application easier to extend and maintain and on building an accessible frontend interface. Also, I hope to improve my communication skills and gain more experience in working on a team and how to work collaboratively on a coding project.
 
 ### Jenna:
+
 My goal for this project is to build an application that feels both rewarding and fulfilling, something that I will be proud to share with others. Since we’re working as a team this time, I want to tackle a larger-scale project where I can really put my technical and creative skills to use. Further, I hope to improve my full-stack skills and software engineering practices by writing clean, modular, and maintable code that's easy for others to understand and build upon.
 
 ## 3. Frequency, length and location of team meetings;
+
 We plan to meet at least once a week for about an hour to discuss team updates, review progress, conduct code reviews, and plan for the upcoming week. Additional check-ins can be added throughout the week as needed to track progress or resolve issues. For our main weekly meeting, meeting in-person is preferred and will take place somewhere convenient for the team that paricular week, such as the Student Center. The shorter, more frequent check-ins can be held over Zoom if necessary.
 
 ## 4. How quality of work will be maintained (reviewing each others' code? team review meetings? pair programming?);
