@@ -41,13 +41,13 @@ In fact, one employee specifically pointed out that the largest factor causing d
 
     _Limitation:_ These systems are not designed for campus dining hall environments that operate on meal plans.
 
-4. **[Transact Mobile Order](https://www.transactcampus.com/solutions/campus-commerce/transact-mobile-ordering)** - A mobile ordering app built for college campuses that enables students to order ahead, pay with campus cards/meal plans, and pick up food at dining locations.
+4. **[Transact Mobile Ordering](https://www.transactcampus.com/solutions/campus-commerce/transact-mobile-ordering)** - A mobile ordering app built for college campuses that enables students to order ahead, pay with campus cards/meal plans, and pick up food at dining locations.
 
     _Limitation_: Though designed for campus dining, this system may focus more on standard grab-and-go menu items rather than customized meal items, so it may not integrate well with some aspects of our dining halls.
 
-5. **Google Sheets** — As mentioned above, a workaround to this problem is to rely on Google Sheets for students to place orders in advance. Students manually enter their meal choices, which the chef reviews later to prepare food for pickup at the end of lunch.
+5. **Google Sheets** - As mentioned above, a workaround for students who do not have time to wait in line is to place their orders in advances on Google Sheets. Students manually enter their meal choices, which the chef reviews later to prepare food for pickup at the end of lunch.
 
-    _Limitation:_ This method does not allow students to schedule or receive live updates about their orders. It also increases the chance of human error.
+    _Limitation:_ This method does not allow students to schedule or receive live updates about their orders. It also increases the chance of human error (e.g. duplicating an order, etc.).
 
 ## Features
 
