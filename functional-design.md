@@ -357,7 +357,7 @@ Social media apps for networking don’t help with the problem of finding who I 
 
 **sync** addProfileLinksToNetwork
 
-**when** 
+**when**
 - PublicProfile.updateProfile (user, links)
 
 **then**
@@ -366,7 +366,7 @@ Social media apps for networking don’t help with the problem of finding who I 
    - MultiSourceNetwork.addEdge (owner: user, from: user, to: link, source: "profile_links")
 
 ---
-
+<!--when the user updates his profile, it's necessary to update every indexItem so when others search, it will be ranked correctly with the new version-->
 **sync** reindexProfileForSemanticSearch
 
 **when**
@@ -428,10 +428,21 @@ A user is looking to get into sports analytics. It's often best to get a startin
 
 # Design Summary
 
+The four core concepts—PublicProfile, MultiSourceNetwork, SemanticSearch, and GraphExplorer—work together and turns disparate social connections into a unified, queryable, explorable knowledge graph. PublicProfile establishes the user’s identity and structured information. MultiSourceNetwork merges imported connections from multiple platforms into a single source-aware graph, protecting privacy, preserving origin of the imported connections, and enabling flexible updates. SemanticSearch indexes profile and network data so that algorithm queries can surface relevant people across all imported platforms. GraphExplorer then visualizes the search results or the full network, allowing rich exploration, filtering, and understanding of how each connection relates to the user. The provided syncs coordinate these concepts so that profile updates reindex automatically, search results automatically create graph views, refinements dynamically update the visualization, and altogether keeps every update made by different users visible another. This ecosystem enables users to discover who in their network is relevant for hiring, learning, or introductions without manually browsing lists or remembering names.
+
+The design directly incorporates privacy, consent, visibility control, and data provenance into its conceptual structure. PublicProfile gives users explicit control over what information is displayed publicly, while MultiSourceNetwork only imports public data and keeps track of which platform each piece of information came from. This ensures users can dispute or restrict how they appear in others’ networks without exposing private data. The semantic search and graph views operate exclusively on indexed items that users have chosen to make public or have explicitly imported, reducing coercive pressure to overshare. The visibility system proposed in the ethics assessment fits naturally into the PublicProfile attributes and the GraphExplorer filtering model, allowing selective disclosure. Additionally, MultiSourceNetwork supports automatic removal of nodes when their source data disappears, respecting non-users’ desire not to participate. Together, these mechanisms address privacy/consent concerns while still enabling meaningful network discovery.
+
+**Remaining Issues:**
+
+1. The application is handling indirect stakeholders—people who appear in another user’s imported network without using the platform. Although we are only sharing their public data which can be accessed by anyone, the indirect stakeholders might find it discomforting. We are sending notifications to non-users of our platform which can seems like privacy issues.
+
+2. The system assumes that semantic inference from public profiles is accurate enough for sensitive tasks like hiring, but if the user choose to use LLM for ranking other users or our developed ranking algorithm is biased, it would require mitigation strategies.
+
 # Development Plan
 
 ## Feature Delivery Timeline
 
-## Team Responsibilities
+[Product Backlog](https://docs.google.com/spreadsheets/d/116ISQtCtWRyhLde5VjYBxozTRcjoM0o3Lnhr-KnRByA/edit?usp=sharing)
 
-## Risks & Mitigation
+## Team Responsibilities & Risks & Mitigation Document
+[Responsibility,Risks,Backup](https://docs.google.com/document/d/1R_6nuRlOsQ65xkurcoxQNJ44AZzgTLI4bB5NlMPMtaQ/edit?usp=sharing)
