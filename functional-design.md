@@ -559,6 +559,7 @@ The development plan is structured to align directly with the milestone phases a
 **Risks/Mitigation:**
 - **Complex integration (multi-source data, privacy):** Follow the conceptual model’s rules strictly for source provenance, deletion, and privacy enforcement.
 - **LLM or vector search accuracy/bias:** Provide user feedback interface and options for correcting or reporting results, and version new ranking/embedding methods safely.
+- **Nice Looking Graph integrations:** Creating an attractive, dynamically calculated graph is quite challenging, especially when dealing with a large number of nodes. Although recent tools might make this somewhat easier, ensuring that the graph is both visually appealing and genuinely useful remains a significant challenge.
 
 For detailed tasks, responsibility handoffs, and risk contingencies, refer to the linked spreadsheet and document.
 
