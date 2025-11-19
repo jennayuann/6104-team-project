@@ -85,6 +85,8 @@ Social media apps for networking don’t help with the problem of finding who I 
    - People who do not use the app might find themselves appearing in searches because they were in someone else’s network. This might create concerns about privacy.
    - We will only be using public data, so if someone prefers to remain private, their information will not show up in our application.
 
+<br>
+
 # Concept Design
 
 ## Concept Specifications
@@ -399,7 +401,7 @@ Social media apps for networking don’t help with the problem of finding who I 
 **then**
 - GraphExplorer.updateVisibleNodes (viewID, resultItems)
 
----
+<br>
 
 # User Journey
 
@@ -413,6 +415,7 @@ A recently unemployed computer scientist is having a difficult time finding a ne
 
 A user is looking to get into sports analytics. It's often best to get a starting point from an expert, but they can't think of anyone in their network with that experience. They log into the app, create an account, and sync it with their LinkedIn network. Once the network is imported, the user searches for "sports analytics professional." After seeing there are several within one connection, they refine their search to "senior basketball analytics professional," seeing a smaller, ranked list that includes a short blurb from each profile. They find someone based in Boston, click to view the full imported profile, and then follow the link to LinkedIn to send a direct connection request with a message.
 
+<br>
 
 # UI Sketches
 ![Network Page UI Sketch](/images/networkPage.png)
@@ -424,6 +427,8 @@ A user is looking to get into sports analytics. It's often best to get a startin
 ![Search Interface UI Sketch](/images/searchPage.png)
 *Figure: Semantic search and filter interface for exploring connections.*
 
+<br>
+
 # Visual Design Study
 
 ![Visual Design Study 1](/images/VDS1.png)
@@ -432,6 +437,7 @@ A user is looking to get into sports analytics. It's often best to get a startin
 ![Visual Design Study 2](/images/VDS2.png)
 *Figure: Visual Design Study #2*
 
+<br>
 
 # Design Summary
 
@@ -445,9 +451,9 @@ The design directly incorporates privacy, consent, visibility control, and data 
 
 2. The system assumes that semantic inference from public profiles is accurate enough for sensitive tasks like hiring, but if the user choose to use LLM for ranking other users or our developed ranking algorithm is biased, it would require mitigation strategies.
 
-# Development Plan
+<br>
 
-## Development Plan
+# Development Plan
 
 The development plan is structured to align directly with the milestone phases and team assignment table that follows, ensuring complete correspondence in leads and concept focus. Each phase below matches the roles and technical responsibilities as listed in the summary table.
 
@@ -455,8 +461,8 @@ The development plan is structured to align directly with the milestone phases a
 
 ### Alpha 1 (Network): PublicProfile & MultiSourceNetwork
 
-**Backend Lead:** Ivy  
-**Frontend Lead:** Jing  
+**Backend Lead:** Ivy
+**Frontend Lead:** Jing
 
 **Goals:**
 - Build backend APIs for user account creation, profile management, and network graph storage following `PublicProfile` and `MultiSourceNetwork`.
@@ -471,8 +477,8 @@ The development plan is structured to align directly with the milestone phases a
 
 ### Alpha 2 (Search): SemanticSearch
 
-**Backend Lead:** Jenna  
-**Frontend Lead:** Jing  
+**Backend Lead:** Jenna
+**Frontend Lead:** Jing
 
 **Goals:**
 - Implement LLM/vector-powered semantic search over the network and profiles.
@@ -487,8 +493,8 @@ The development plan is structured to align directly with the milestone phases a
 
 ### Alpha 3 (Importing): MultiSourceNetwork (import flows)
 
-**Backend Lead:** Cole Ruehle  
-**Frontend Lead:** Jing  
+**Backend Lead:** Cole Ruehle
+**Frontend Lead:** Jing
 
 **Goals:**
 - Integrate importing from third-party platforms (LinkedIn, Instagram, Handshake) using OAuth or public APIs.
@@ -503,8 +509,8 @@ The development plan is structured to align directly with the milestone phases a
 
 ### Beta (Graph display): GraphExplorer, Final Integration
 
-**Backend Lead:** Cole Ruehle  
-**Frontend Lead:** Jing  
+**Backend Lead:** Cole Ruehle
+**Frontend Lead:** Jing
 
 **Goals:**
 - Deliver the core graph visualization experience (navigation, filtering, live updates).
@@ -519,8 +525,8 @@ The development plan is structured to align directly with the milestone phases a
 
 ### Beta (Viz/Polish): GraphExplorer, Final Integration
 
-**Backend Lead:** TBD  
-**Frontend Lead:** TBD  
+**Backend Lead:** TBD
+**Frontend Lead:** TBD
 
 **Goals:**
 - Polish UI/UX, finalize visual clustering and filtering.
@@ -534,10 +540,7 @@ The development plan is structured to align directly with the milestone phases a
 
 ---
 
-*Team assignments for each phase precisely match the provided summary table. See the summary and documentation for further task-level breakdowns.*
-
-
-### Summary Table
+### Summary Table of Team Responsibilities
 
 | Phase                | Backend Lead    | Frontend Lead | Focused Concept(s)                 |
 |----------------------|----------------|---------------|-------------------------------------|
@@ -549,18 +552,51 @@ The development plan is structured to align directly with the milestone phases a
 
 ---
 
-**Key Integration Points with Concepts:**
+### **Key Integration Points with Concepts:**
 - Each API and backend implementation ties directly to the corresponding concept’s actions/state (e.g., profile CRUD reflects `PublicProfile` actions, all network mutations support dynamic sources per `MultiSourceNetwork`).
 - Semantic search and indexing are coupled tightly with network/profile updates: profile changes re-index, importing triggers new indexing, search results automatically link to visualization (as described in syncs).
 - Visual clustering and graph exploration APIs/services parallel the `GraphExplorer` concept, providing a data model and UI that supports filtering, highlighting paths, and dynamic layouts.
 
 ---
 
-**Risks/Mitigation:**
-- **Complex integration (multi-source data, privacy):** Follow the conceptual model’s rules strictly for source provenance, deletion, and privacy enforcement.
-- **LLM or vector search accuracy/bias:** Provide user feedback interface and options for correcting or reporting results, and version new ranking/embedding methods safely.
-- **Nice Looking Graph integrations:** Creating an attractive, dynamically calculated graph is quite challenging, especially when dealing with a large number of nodes. Although recent tools might make this somewhat easier, ensuring that the graph is both visually appealing and genuinely useful remains a significant challenge.
+### **Risks/Mitigation:**
+- **Time Management**
+  - **Risk:** Debugging or testing features is very time consuming, and cramming doesn’t deliver workable on time for helpful feedback.
+  - **Mitigation:** Assigning a start date for oneself in our backlog google sheet and sending reminders to each other to start on the code
+  - **Fallback:** Ask help from other members and simplify down the task for the upcoming deadline so something can be delivered and get some partial feedback.
 
-For detailed tasks, responsibility handoffs, and risk contingencies, refer to the linked spreadsheet and document.
+- **Bad UI/UX Design**
+  - **Risk:** Bad UI/UX design for new users since we are the creators and coming in with creator knowledge.
+  - **Mitigation:** Find someone not in our group to test out the frontend to get feedback on how to improve
+  - **Fallback:** If we can’t fix the frontend experience, we would add buttons or text as instructions to guide the user with the cost of looking less minimalistic.
+
+- **Limited Public Data**
+  - **Risk:** Limited amount of public data that is scrapable for us from the platforms, leading to poor ranking/filtering of other user’s abilities and skills
+  - **Mitigation:** Require a set amount of tags about a connection entered manually from the user, so we won’t mis-rank anyone. (if the user inputs false information, that’s up to them)
+  - **Fallback:** Give a warning to the user that the ranking list given from the application might be unfair due to lack of tags (indexItem) from at least one of their connections
+
+- **Privacy Concerns**
+  - **Risk:** Although all information saved to the app is from public sources, some people may still think that it is invasive, especially involving indirect stakeholders who are not users of the platform.
+  - **Mitigation:** Be as transparent as possible, notifying non-users when their public profiles have been added to the app’s database. Ensure users know that the information used is not private. People who are not comfortable with their information on the app will have an option to opt out.
+  - **Fallback:** Only use information that users upload about themselves and not from scraped information from online sources.
+
+- **Onboarding Friction**
+  - **Risk:** Users might find it tedious or time consuming having to provide links to source platforms and manually input information. This may deter people from using the app.
+  - **Mitigation:** When users enter their name, email, or other identifiers during sign up, search the database for any profile (that was uploaded from an existing user’s network) that might match the new user. This would give the new user an option to fill out their profile immediately.
+  - **Fallback:** Provide some sort of “trial mode” that uses sample data and allows users to have a quick demo of what using the app is like. This can convince people who are hesitant to sign up to use the app if they like the trial.
+
+- **Multi-Source Integration Complexity**
+  - **Risk:** The application merges data from multiple platforms each with different structure, reliability, completeness, and consent. Some platforms may not provide the public APIs necessary to support network importing.
+  - **Mitigation:** Follow the conceptual model’s rules strictly for source provenance and deletion. Do early research into which platforms provide a public API or other export tool.
+  - **Fallback:** Start with integrating one initial source only, such as Linked-In which we know has a public API, and add others only after one source works correctly.
+
+- **Semantic Search Accuracy and Bias**
+  - **Risk:** LLMs may misinterpret connections and inaccurately rank people for certain queries, and there may be underlying biases from either the LLM model itself or from our prompt engineering.
+  - **Mitigation:** Do adequate user testing and ask for their feedback. Track LLM prompt versions to review and improve upon.
+  - **Fallback:** Use a basic keyword-based search mode that uses no LLMs if semantic scoring ends up being unreliable or unsafe.
+
+- **Nice Looking Graph Integrations:** Creating an attractive, dynamically calculated graph is challenging, especially with many nodes. Even with modern tools, making the graph both visually appealing and genuinely useful may be difficult.
+  - **Mitigation:** Use existing visualization libraries and follow clear visual design principles for spacing, color, grouping, and interactivity. Test graph usability early with real network data.
+  - **Fallback:** Simplify the graph: reduce visible nodes, use a list-first interface with optional mini-map–style visuals, or provide a static layout instead of a fully dynamic one.
 
 ---
