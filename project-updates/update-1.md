@@ -27,4 +27,4 @@ Problem: Emails can get pushed down really fast since dormspam is in outlook wit
 - Regular team check-ins: haven't decided on a day and time for our weekly check-ins.
 
 ## Plans & Decisions
-[Will be discussed at meeting]
+- We discussed many project ideas and ended up settling on a network query tool. 
