@@ -1,6 +1,6 @@
 import { assertEquals } from "jsr:@std/assert";
 import { testDb } from "../../utils/database.ts";
-import UserAuthenticationConcept from "./UserAuthentication.ts";
+import UserAuthenticationConcept from "./UserAuthenticationConcept.ts";
 
 Deno.test("UserAuthentication: register and authenticate successfully", async () => {
   const [db, client] = await testDb();
