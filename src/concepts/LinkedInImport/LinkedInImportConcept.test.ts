@@ -4,7 +4,6 @@ import { ID } from "@utils/types.ts";
 import LinkedInImportConcept from "./LinkedInImportConcept.ts";
 
 const userA = "user:Alice" as ID;
-const userB = "user:Bob" as ID;
 
 //
 // ------------------------------------------------------------
@@ -24,6 +23,7 @@ Deno.test("Action: importConnectionsFromCSV parses basic CSV and creates connect
       linkedInUserId: "test_linkedin_id",
     });
     assertNotEquals("error" in accountResult, true, "Account creation should succeed");
+    if ("error" in accountResult) throw new Error("Account creation failed");
     const account = accountResult.account;
 
     // 2. Create a simple CSV
@@ -61,6 +61,7 @@ Deno.test("Action: importConnectionsFromCSV handles empty CSV", async () => {
       accessToken: "test_token",
       linkedInUserId: "test_linkedin_id",
     });
+    if ("error" in accountResult) throw new Error("Account creation failed");
     const account = accountResult.account;
 
     const result = await concept.importConnectionsFromCSV({
@@ -107,6 +108,7 @@ Deno.test("Action: importConnectionsFromCSV handles CSV with quoted fields", asy
       accessToken: "test_token",
       linkedInUserId: "test_linkedin_id",
     });
+    if ("error" in accountResult) throw new Error("Account creation failed");
     const account = accountResult.account;
 
     // CSV with quoted fields containing commas
@@ -143,6 +145,7 @@ Deno.test("Action: importConnectionsFromJSON parses basic JSON array and creates
       accessToken: "test_token",
       linkedInUserId: "test_linkedin_id",
     });
+    if ("error" in accountResult) throw new Error("Account creation failed");
     const account = accountResult.account;
 
     // 2. Create a simple JSON array
@@ -189,6 +192,7 @@ Deno.test("Action: importConnectionsFromJSON handles single JSON object", async 
       accessToken: "test_token",
       linkedInUserId: "test_linkedin_id",
     });
+    if ("error" in accountResult) throw new Error("Account creation failed");
     const account = accountResult.account;
 
     // Single object (not array)
@@ -220,6 +224,7 @@ Deno.test("Action: importConnectionsFromJSON handles empty JSON", async () => {
       accessToken: "test_token",
       linkedInUserId: "test_linkedin_id",
     });
+    if ("error" in accountResult) throw new Error("Account creation failed");
     const account = accountResult.account;
 
     const result = await concept.importConnectionsFromJSON({
@@ -243,6 +248,7 @@ Deno.test("Action: importConnectionsFromJSON handles invalid JSON", async () => 
       accessToken: "test_token",
       linkedInUserId: "test_linkedin_id",
     });
+    if ("error" in accountResult) throw new Error("Account creation failed");
     const account = accountResult.account;
 
     const result = await concept.importConnectionsFromJSON({
@@ -269,6 +275,7 @@ Deno.test("Action: importConnectionsFromJSON handles JSON with arrays (skills, e
       accessToken: "test_token",
       linkedInUserId: "test_linkedin_id",
     });
+    if ("error" in accountResult) throw new Error("Account creation failed");
     const account = accountResult.account;
 
     const jsonContent = JSON.stringify([
@@ -318,6 +325,7 @@ Deno.test("Action: importConnectionsFromJSON handles empty array", async () => {
       accessToken: "test_token",
       linkedInUserId: "test_linkedin_id",
     });
+    if ("error" in accountResult) throw new Error("Account creation failed");
     const account = accountResult.account;
 
     const result = await concept.importConnectionsFromJSON({
@@ -351,6 +359,7 @@ Deno.test("Integration: CSV import creates connections that can be queried", asy
       accessToken: "test_token",
       linkedInUserId: "test_linkedin_id",
     });
+    if ("error" in accountResult) throw new Error("Account creation failed");
     const account = accountResult.account;
 
     // Simple CSV
@@ -384,6 +393,7 @@ Deno.test("Integration: JSON import creates connections that can be queried", as
       accessToken: "test_token",
       linkedInUserId: "test_linkedin_id",
     });
+    if ("error" in accountResult) throw new Error("Account creation failed");
     const account = accountResult.account;
 
     // Simple JSON
@@ -426,6 +436,7 @@ Deno.test("Query: _getAccountUser returns user for valid account", async () => {
       accessToken: "test_token",
       linkedInUserId: "test_linkedin_id",
     });
+    if ("error" in accountResult) throw new Error("Account creation failed");
     const account = accountResult.account;
 
     const result = await concept._getAccountUser({ account });

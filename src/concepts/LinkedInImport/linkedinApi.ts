@@ -262,8 +262,8 @@ export async function getProfileDetails(
  * The Connections API is only available to approved partners.
  * This function provides a structure for when such access is available.
  */
-export async function getConnections(
-  accessToken: string,
+export function getConnections(
+  _accessToken: string,
 ): Promise<LinkedInConnection[]> {
   // Note: The actual LinkedIn Connections API requires special approval
   // This is a placeholder that would need to be implemented based on:
@@ -281,8 +281,8 @@ export async function getConnections(
   console.warn(
     "LinkedIn Connections API requires special approval. This is a placeholder implementation.",
   );
-
-  return [];
+  
+  return Promise.resolve([]);
 }
 
 /**

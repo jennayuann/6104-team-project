@@ -4,6 +4,7 @@
 
 import { LinkedInImport, MultiSourceNetwork } from "@concepts";
 import { actions, Sync } from "@engine";
+import { ID } from "@utils/types.ts";
 
 /**
  * Sync: When a LinkedIn connection is added, add it to the MultiSourceNetwork
@@ -35,7 +36,7 @@ export const AddLinkedInConnectionToNetwork: Sync = ({
     {
       owner: user,
       node: connection,
-      source: "linkedin" as any,
+      source: "linkedin" as ID,
     },
   ]),
 });
