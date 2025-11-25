@@ -192,7 +192,7 @@ function parseList(value: string) {
     .filter(Boolean);
 }
 
-function log(conceptAction: string, payload: Record<string, unknown>, status: "success" | "error", message: string, section: Section) {
+function log(_conceptAction: string, _payload: Record<string, unknown>, status: "success" | "error", message: string, section: Section) {
   showBanner(section, status, message);
 }
 
