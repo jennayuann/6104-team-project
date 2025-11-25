@@ -138,7 +138,14 @@ export default class SemanticSearchConcept {
       { upsert: true },
     );
 
-    await semanticIndex(owner, [{ item, text }]);
+    const ownerDocs = await this.indexedItems.find({ owner }).toArray();
+    await semanticIndex(
+      owner,
+      ownerDocs.map((doc) => ({
+        item: doc.item,
+        text: doc.text,
+      })),
+    );
 
     return {};
   }
