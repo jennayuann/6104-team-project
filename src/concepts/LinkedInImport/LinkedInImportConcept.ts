@@ -581,7 +581,7 @@ Return ONLY a JSON object mapping JSON key names to ConnectionDoc field names. U
 
     try {
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -655,7 +655,7 @@ Return ONLY a JSON object mapping CSV column names to ConnectionDoc field names.
 
     try {
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -817,6 +817,7 @@ Return ONLY a JSON object mapping CSV column names to ConnectionDoc field names.
       }
 
       const { headers, rows } = parseResult;
+      console.log(`[LinkedInImport] Parsed CSV: ${rows.length} rows with headers:`, headers);
 
       // Use LLM to map CSV fields
       const mappingResult = await this.mapCSVFieldsWithLLM(headers);
@@ -835,10 +836,12 @@ Return ONLY a JSON object mapping CSV column names to ConnectionDoc field names.
       }
 
       const fieldMapping = mappingResult;
+      console.log(`[LinkedInImport] Field mapping:`, fieldMapping);
 
       // Process each row
       let connectionsImported = 0;
       const errors: string[] = [];
+      console.log(`[LinkedInImport] Processing ${rows.length} rows...`);
 
       for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
         const row = rows[rowIndex];
@@ -932,17 +935,35 @@ Return ONLY a JSON object mapping CSV column names to ConnectionDoc field names.
 
         // Generate linkedInConnectionId if not provided
         if (!connectionData.linkedInConnectionId || connectionData.linkedInConnectionId.trim() === "") {
-          // Use email, profile URL, or name combination as fallback
-          const fallbackId = connectionData.profileUrl ||
-            `${connectionData.firstName || ""}_${connectionData.lastName || ""}`.trim() ||
-            `connection_${rowIndex}`;
+          // Extract LinkedIn ID from profile URL if available
+          let fallbackId: string;
+          if (connectionData.profileUrl) {
+            // Extract LinkedIn username from URL (e.g., https://www.linkedin.com/in/username -> username)
+            const urlMatch = connectionData.profileUrl.match(/linkedin\.com\/in\/([^\/\?]+)/);
+            fallbackId = urlMatch ? urlMatch[1] : connectionData.profileUrl;
+          } else {
+            // Use name combination or row index as fallback
+            const nameCombo = `${connectionData.firstName || ""}_${connectionData.lastName || ""}`.trim();
+            fallbackId = nameCombo || `connection_${rowIndex}`;
+          }
           connectionData.linkedInConnectionId = fallbackId;
         }
 
         // Add connection
         const addResult = await this.addConnection(connectionData);
         if ("error" in addResult) {
-          errors.push(`Row ${rowIndex + 2}: ${addResult.error}`);
+          const errorMsg = `Row ${rowIndex + 2}: ${addResult.error}`;
+          errors.push(errorMsg);
+          // Log first few errors for debugging
+          if (errors.length <= 5) {
+            console.error(`[LinkedInImport] ${errorMsg}`);
+            console.error(`[LinkedInImport] Row data:`, {
+              linkedInConnectionId: connectionData.linkedInConnectionId,
+              firstName: connectionData.firstName,
+              lastName: connectionData.lastName,
+              profileUrl: connectionData.profileUrl,
+            });
+          }
         } else {
           connectionsImported++;
         }
@@ -950,6 +971,14 @@ Return ONLY a JSON object mapping CSV column names to ConnectionDoc field names.
 
       // Update import job
       const finalStatus = errors.length === 0 ? "completed" : "failed";
+      console.log(`[LinkedInImport] Import complete: ${connectionsImported}/${rows.length} connections imported, ${errors.length} errors`);
+      if (errors.length > 0 && errors.length <= 10) {
+        console.log(`[LinkedInImport] Errors:`, errors);
+      } else if (errors.length > 10) {
+        console.log(`[LinkedInImport] First 10 errors:`, errors.slice(0, 10));
+        console.log(`[LinkedInImport] ... and ${errors.length - 10} more errors`);
+      }
+      
       await this.importJobs.updateOne(
         { _id: importJobId },
         {
