@@ -1,9 +1,73 @@
 <template>
-  <div class="page-grid">
-    <section class="card">
+  <div class="profile-page">
+    <section class="profile-actions card">
+      <h2 style="margin-top: 0">Profile actions</h2>
+      <p class="muted">Manage your public profile.</p>
+      <div class="action-buttons">
+        <button type="button" @click="showCreateModal = true">
+          Create Profile
+        </button>
+        <button type="button" @click="showUpdateModal = true">
+          Update Profile
+        </button>
+      </div>
+    </section>
+
+    <section class="profile-main card">
+      <div class="result-profile-picture" v-if="avatarUrl">
+        <img :src="avatarUrl" alt="Profile avatar" />
+      </div>
+      <div class="search-hero">
+        <RouterLink class="network-button" to="/network">View My Network</RouterLink>
+        <form class="search-form" @submit.prevent="fetchProfile">
+          <input
+            class="search-input"
+            v-model.trim="inspectUser"
+            :disabled="inspectLoading"
+            placeholder="Who are you looking for?..."
+            required
+          />
+          <button type="submit" :disabled="inspectLoading">
+            {{ inspectLoading ? "Searching…" : "Search" }}
+          </button>
+        </form>
+      </div>
+
+      <StatusBanner
+        v-if="banner && banner.section === 'inspect'"
+        :type="banner.type"
+        :message="banner.message"
+      />
+
+      <article v-if="fetchedProfile" class="profile-result">
+        <h3>{{ fetchedProfile.headline }}</h3>
+        <div>
+          <strong>Attributes:</strong>
+          <p>{{ fetchedProfile.attributes.join(", ") || "—" }}</p>
+        </div>
+        <div>
+          <strong>Links:</strong>
+          <ul>
+            <li v-for="link in fetchedProfile.links" :key="link">
+              <a :href="link" target="_blank" rel="noreferrer">{{ link }}</a>
+            </li>
+          </ul>
+        </div>
+      </article>
+      <p v-else-if="inspectResult" class="muted" style="margin-top: 1rem">
+        {{ inspectResult }}
+      </p>
+    </section>
+
+    <ActivityLog :entries="activityLog.recent" />
+  </div>
+
+  <div class="modal-overlay" v-if="showCreateModal">
+    <div class="modal-card half">
+      <button class="close-btn" type="button" @click="showCreateModal = false">×</button>
       <h2>Create Your Public Profile</h2>
       <p class="muted">
-        Logged in as <strong>{{ auth.username }}</strong> (ID: {{ activeUserId }})
+        Logged in as <strong>{{ activeUsername }}</strong>
       </p>
       <StatusBanner
         v-if="banner && banner.section === 'create'"
@@ -29,15 +93,22 @@
             placeholder="https://example.com, https://linkedin.com/in/me"
           />
         </label>
-        <button type="submit">Create Profile</button>
+        <div class="modal-actions">
+          <button type="button" class="muted-btn" @click="showCreateModal = false">
+            Cancel
+          </button>
+          <button type="submit">Create Profile</button>
+        </div>
       </form>
-    </section>
+    </div>
+  </div>
 
-    <section class="card">
+  <div class="modal-overlay" v-if="showUpdateModal">
+    <div class="modal-card half">
+      <button class="close-btn" type="button" @click="showUpdateModal = false">×</button>
       <h2>Update Your Profile</h2>
       <p class="muted">
-        Only fill the fields you want to change. Leave a field blank to keep the
-        current value.
+        Only fill the fields you want to change. Leave blank to keep existing data.
       </p>
       <StatusBanner
         v-if="banner && banner.section === 'update'"
@@ -60,71 +131,20 @@
           Links (comma separated URLs)
           <input v-model="updateForm.links" placeholder="Leave blank to skip" />
         </label>
-        <button type="submit">Update Profile</button>
+        <div class="modal-actions">
+          <button type="button" class="muted-btn" @click="showUpdateModal = false">
+            Cancel
+          </button>
+          <button type="submit">Update Profile</button>
+        </div>
       </form>
-    </section>
-
-    <section class="card">
-      <h2>Delete Profile</h2>
-      <StatusBanner
-        v-if="banner && banner.section === 'delete'"
-        :type="banner.type"
-        :message="banner.message"
-      />
-      <form class="form-grid" @submit.prevent="handleDeleteProfile">
-        <button type="submit" style="background: linear-gradient(120deg, #ef4444, #f97316)">
-          Delete Profile
-        </button>
-      </form>
-    </section>
-
-    <section class="card" style="grid-column: 1 / -1">
-      <h2>Profile Inspector</h2>
-      <p class="muted">
-        Query the concept to verify that changes landed in MongoDB.
-      </p>
-      <StatusBanner
-        v-if="banner && banner.section === 'inspect'"
-        :type="banner.type"
-        :message="banner.message"
-      />
-      <form class="form-grid" @submit.prevent="fetchProfile">
-        <label>
-          User ID
-          <input v-model.trim="inspectUser" required />
-        </label>
-        <button type="submit" :disabled="inspectLoading">
-          {{ inspectLoading ? "Fetching…" : "Fetch Profile" }}
-        </button>
-      </form>
-
-      <article v-if="fetchedProfile" class="list-item" style="margin-top: 1.5rem">
-        <h3 style="margin-top: 0">{{ fetchedProfile.headline }}</h3>
-        <p class="muted">User: {{ fetchedProfile.user }}</p>
-        <p>
-          <strong>Attributes:</strong>
-          {{ fetchedProfile.attributes.join(", ") || "—" }}
-        </p>
-        <p>
-          <strong>Links:</strong>
-        </p>
-        <ul>
-          <li v-for="link in fetchedProfile.links" :key="link">
-            <a :href="link" target="_blank" rel="noreferrer">{{ link }}</a>
-          </li>
-        </ul>
-      </article>
-      <p v-else-if="inspectResult" class="muted" style="margin-top: 1rem">
-        {{ inspectResult }}
-      </p>
-    </section>
-
-    <ActivityLog :entries="activityLog.recent" />
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { reactive, ref, computed, watch } from "vue";
+import { RouterLink } from "vue-router";
 import StatusBanner from "@/components/StatusBanner.vue";
 import ActivityLog from "@/components/ActivityLog.vue";
 import {
@@ -134,19 +154,21 @@ import {
 } from "@/services/conceptClient";
 import { useActivityLogStore } from "@/stores/useActivityLog";
 import { useAuthStore } from "@/stores/useAuthStore";
+import { useAvatarStore } from "@/stores/useAvatarStore";
 
-type Section = "create" | "update" | "delete" | "inspect";
+type Section = "create" | "update" | "inspect";
 
 const auth = useAuthStore();
 const activeUserId = computed(() => auth.userId ?? "");
+const activeUsername = computed(() => auth.username ?? "");
 
-const createForm = reactive({
+const updateForm = reactive({
   headline: "",
   attributes: "",
   links: "",
 });
 
-const updateForm = reactive({
+const createForm = reactive({
   headline: "",
   attributes: "",
   links: "",
@@ -158,6 +180,10 @@ const fetchedProfile = ref<PublicProfile | null>(null);
 const inspectResult = ref("");
 const banner = ref<{ section: Section; type: "success" | "error"; message: string } | null>(null);
 const activityLog = useActivityLogStore();
+const avatarStore = useAvatarStore();
+const showCreateModal = ref(false);
+const showUpdateModal = ref(false);
+const avatarUrl = ref<string | null>(null);
 
 function showBanner(section: Section, type: "success" | "error", message: string) {
   banner.value = { section, type, message };
@@ -191,6 +217,10 @@ async function handleCreateProfile() {
   try {
     await PublicProfileAPI.createProfile(payload);
     log("createProfile", payload, "success", "Profile created.", "create");
+    createForm.headline = "";
+    createForm.attributes = "";
+    createForm.links = "";
+    showCreateModal.value = false;
   } catch (error) {
     log("createProfile", payload, "error", formatError(error), "create");
   }
@@ -211,18 +241,12 @@ async function handleUpdateProfile() {
   try {
     await PublicProfileAPI.updateProfile(payload);
     log("updateProfile", payload, "success", "Profile updated.", "update");
+    updateForm.headline = "";
+    updateForm.attributes = "";
+    updateForm.links = "";
+    showUpdateModal.value = false;
   } catch (error) {
     log("updateProfile", payload, "error", formatError(error), "update");
-  }
-}
-
-async function handleDeleteProfile() {
-  const payload = { user: activeUserId.value };
-  try {
-    await PublicProfileAPI.deleteProfile(payload);
-    log("deleteProfile", payload, "success", "Profile deleted.", "delete");
-  } catch (error) {
-    log("deleteProfile", payload, "error", formatError(error), "delete");
   }
 }
 
@@ -231,14 +255,26 @@ async function fetchProfile() {
   inspectLoading.value = true;
   fetchedProfile.value = null;
   inspectResult.value = "";
-  const payload = { user: inspectUser.value };
+  const targetId = inspectUser.value === activeUsername.value
+    ? activeUserId.value
+    : inspectUser.value;
+  const payload = { user: targetId };
   try {
     const result = await PublicProfileAPI.getProfile(payload);
     if (result.length === 0) {
       inspectResult.value = "No profile found for this user.";
+      avatarUrl.value = null;
     } else {
       fetchedProfile.value = result[0].profile;
       inspectResult.value = "";
+      const { profilePictureUrl, user } = result[0].profile as PublicProfile & {
+        profilePictureUrl?: string;
+        user?: string;
+      };
+      if (user) {
+        avatarStore.setForUser(user, profilePictureUrl);
+        avatarUrl.value = avatarStore.getForUser(user);
+      }
     }
     log("_getProfile", payload, "success", "Profile fetched.", "inspect");
   } catch (error) {
@@ -257,7 +293,7 @@ function formatError(error: unknown) {
 }
 
 watch(
-  () => auth.userId,
+  () => auth.username,
   (next) => {
     if (next) {
       inspectUser.value = next;

@@ -18,7 +18,7 @@
           </span>
         </div>
         <pre style="white-space: pre-wrap; font-size: 0.8rem; margin-top: 0.5rem">
-{{ JSON.stringify(entry.payload, null, 2) }}
+{{ redact(entry.payload) }}
         </pre>
         <p style="margin: 0.4rem 0 0">{{ entry.message }}</p>
       </article>
@@ -38,5 +38,18 @@ defineProps<{
 
 function formatDate(timestamp: string) {
   return new Date(timestamp).toLocaleString();
+}
+
+function redact(payload: Record<string, unknown>) {
+  return JSON.stringify(
+    payload,
+    (key, value) => {
+      if (key === "user" || key === "owner") {
+        return "[redacted]";
+      }
+      return value;
+    },
+    2,
+  );
 }
 </script>

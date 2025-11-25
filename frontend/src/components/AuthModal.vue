@@ -51,10 +51,12 @@
 <script setup lang="ts">
 import { reactive, ref } from "vue";
 import { useAuthStore } from "@/stores/useAuthStore";
+import { useProfileGateStore } from "@/stores/useProfileGate";
 
 type Mode = "login" | "register";
 
 const auth = useAuthStore();
+const profileGate = useProfileGateStore();
 const mode = ref<Mode>("login");
 
 const form = reactive({
@@ -73,8 +75,8 @@ async function handleSubmit() {
     await auth.login({ username: form.username, password: form.password });
   } else {
     await auth.register({ username: form.username, password: form.password });
+    profileGate.requireProfile();
   }
   form.password = "";
 }
 </script>
-

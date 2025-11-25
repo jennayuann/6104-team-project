@@ -54,7 +54,7 @@ export default class PublicProfileConceptConcept {
     // Requires: no entry exists
     const existing = await this.profiles.findOne({ _id: user });
     if (existing) {
-      return { error: `Profile for user ${user} already exists.` };
+      return { error: "Profile exists already, update your profile instead." };
     }
 
     // Requires: headline non-empty
