@@ -21,12 +21,12 @@ export GEMINI_API_KEY="your_key_here"  # Optional
 
 ### 1. Run Unit Tests
 ```bash
-deno test src/concepts/LinkedInImport/LinkedInImportConcept.test.ts --allow-net --allow-read --allow-write --allow-env
+deno test src/concepts/LinkedInImport/LinkedInImportConcept.test.ts --allow-net --allow-read --allow-write --allow-env --allow-sys
 ```
 
 ### 2. Run All Concept Tests
 ```bash
-deno test src/concepts/ --allow-net --allow-read --allow-write --allow-env
+deno test src/concepts/ --allow-net --allow-read --allow-write --allow-env --allow-sys
 ```
 
 ### 3. Build/Import Generation (if syncs changed)
@@ -77,7 +77,7 @@ deno lint src/concepts/LinkedInImport/ src/syncs/linkedinImport.sync.ts
 export GEMINI_API_KEY="your-key-here"
 
 # Test with real CSV
-deno test src/concepts/LinkedInImport/LinkedInImportConcept.test.ts --allow-net --allow-read --allow-write --allow-env
+deno test src/concepts/LinkedInImport/LinkedInImportConcept.test.ts --allow-net --allow-read --allow-write --allow-env --allow-sys
 ```
 
 **Test CSV Format:**
@@ -171,7 +171,7 @@ if [ -z "$MONGODB_URL" ]; then
 fi
 
 echo "1. Running unit tests..."
-deno test src/concepts/LinkedInImport/LinkedInImportConcept.test.ts --allow-net --allow-read --allow-write --allow-env
+deno test src/concepts/LinkedInImport/LinkedInImportConcept.test.ts --allow-net --allow-read --allow-write --allow-env --allow-sys
 
 echo "2. Checking lint..."
 deno lint src/concepts/LinkedInImport/ src/syncs/linkedinImport.sync.ts
@@ -210,8 +210,44 @@ If this critical path works, the core functionality is solid.
 - Create a `.env` file in project root with `MONGODB_URL` and `DB_NAME`
 - Or export them: `export MONGODB_URL="mongodb://localhost:27017"`
 
-**MongoDB Connection Issues**
-- Make sure MongoDB is running locally or update `MONGODB_URL` to your MongoDB instance
-- For local: `mongodb://localhost:27017`
-- For MongoDB Atlas: `mongodb+srv://user:pass@cluster.mongodb.net/`
+**Error: "MongoDB connection failed: bad auth : authentication failed"**
+
+This means your MongoDB connection string has authentication issues. Fix based on your setup:
+
+**For Local MongoDB (no auth):**
+```bash
+# In .env file:
+MONGODB_URL=mongodb://localhost:27017
+DB_NAME=test_db
+```
+
+**For Local MongoDB (with auth):**
+```bash
+# In .env file:
+MONGODB_URL=mongodb://username:password@localhost:27017
+DB_NAME=test_db
+```
+
+**For MongoDB Atlas (cloud):**
+```bash
+# In .env file:
+MONGODB_URL=mongodb+srv://username:password@cluster.mongodb.net/?retryWrites=true&w=majority
+DB_NAME=test_db
+```
+
+**Quick Fix - Test with local MongoDB:**
+1. Make sure MongoDB is running: `brew services start mongodb-community` (macOS) or check your system
+2. If you don't have auth enabled, use: `MONGODB_URL=mongodb://localhost:27017`
+3. If you have auth enabled, include credentials: `MONGODB_URL=mongodb://user:pass@localhost:27017`
+
+**Verify MongoDB is running:**
+```bash
+# Check if MongoDB is running
+mongosh --eval "db.version()"  # or `mongo` for older versions
+```
+
+**MongoDB Connection String Formats:**
+- No auth: `mongodb://localhost:27017`
+- With auth: `mongodb://username:password@localhost:27017`
+- Atlas: `mongodb+srv://username:password@cluster.mongodb.net/`
 
