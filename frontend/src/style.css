@@ -5,7 +5,8 @@
   --color-navy-800: #1b263b;
   --color-navy-600: #415a77;
   --color-navy-400: #6699cc;
-  --color-accent: #003b4d;
+  --color-navy-300: #778da9;
+  --color-accent: #003b6d;
   --color-bg: #ebedf3;
   --color-card: #ffffff;
   --color-sand: #e0e1dd;
@@ -51,7 +52,7 @@ header {
   justify-content: space-between;
   gap: 1rem;
   align-items: flex-start;
-  background: linear-gradient(135deg, var(--color-accent), var(--color-navy-800));
+  background: var(--color-navy-800);
   color: var(--color-sand);
   padding: 1.5rem 2rem;
   box-shadow: 0 4px 30px rgba(13, 27, 42, 0.2);
@@ -188,7 +189,12 @@ main {
   border-radius: 16px;
   text-decoration: none;
   font-weight: 600;
-  box-shadow: 0 10px 20px rgba(76, 141, 245, 0.35);
+  box-shadow: 0 10px 20px rgba(102, 153, 204, 0.35);
+  transition: background 0.2s ease;
+}
+
+.network-button:hover {
+  background: var(--color-navy-300);
 }
 
 .search-form {
@@ -287,7 +293,7 @@ main {
 }
 
 .auth-status .muted {
-  color: #edf2ff;
+  color: var(--color-sand);
   font-weight: 600;
 }
 
@@ -297,7 +303,7 @@ main {
   font-size: 0.9rem;
   cursor: pointer;
   padding: 0;
-  color: #e0e7ff;
+  color: var(--color-sand);
   text-decoration: underline;
 }
 
@@ -341,7 +347,7 @@ main {
 
 .user-settings-panel .danger {
   margin-top: 1.5rem;
-  background: linear-gradient(120deg, #ef4444, #f97316);
+  background: var(--color-gray);
 }
 
 .page-grid {
@@ -391,8 +397,8 @@ input:focus,
 textarea:focus,
 select:focus {
   outline: none;
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+  border-color: var(--color-navy-400);
+  box-shadow: 0 0 0 3px rgba(102, 153, 204, 0.2);
 }
 
 button {
@@ -402,14 +408,15 @@ button {
   font-size: 1rem;
   font-weight: 600;
   color: #fff;
-  background: linear-gradient(120deg, #2563eb, #7c3aed);
+  background: var(--color-navy-600);
   cursor: pointer;
   transition: transform 0.1s ease, box-shadow 0.2s ease;
 }
 
 button:hover {
   transform: translateY(-1px);
-  box-shadow: 0 10px 30px rgba(79, 70, 229, 0.3);
+  background: var(--color-navy-400);
+  box-shadow: 0 10px 30px rgba(65, 90, 119, 0.3);
 }
 
 button:disabled {
@@ -484,13 +491,13 @@ button:disabled {
 
 .auth-toggle button {
   flex: 1;
-  background: #e2e8f0;
-  color: #0f172a;
+  background: var(--color-muted);
+  color: var(--color-navy-900);
   border: none;
 }
 
 .auth-toggle button.active {
-  background: linear-gradient(120deg, #2563eb, #7c3aed);
+  background: var(--color-accent);
   color: #fff;
 }
 
