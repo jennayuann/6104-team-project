@@ -177,7 +177,7 @@ async function getOrCreateLinkedInAccount(): Promise<string> {
   });
 
   if ("error" in result) {
-    throw new Error(result.error);
+    throw new Error(String(result.error));
   }
 
   return result.account;
