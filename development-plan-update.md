@@ -28,9 +28,6 @@ We met our goals we set for the Alpha deadline and have implemented core backend
 - Persist owner-scoped indexed items and wire them to txtai so new text is embedded and added to a per-owner semantic index automatically.
 - Added owner-level reindexing so that when items change, the txtai index is refreshed without manual maintenance.
 - Store search queries and support iterative “refine query” flows for better search UX.
-- Implemented a semantic search endpoint that joins txtai results with imported connection data, returning ranked connection previews with key profile fields and a short text snippet.
-- Integrated semantic search into the frontend profile page: users can type natural-language queries (e.g., “SWE”) and see their LinkedIn-style connections surfaced as ranked cards backed by live txtai embeddings.
-
 
 ---
 
