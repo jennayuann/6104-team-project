@@ -16,3 +16,8 @@
 
 ### Devlopment Plan
 [Devlopment Plan](development-plan-update.md)
+
+Sample Login if you want to fidget around
+
+username: JingYT
+Password: 111111
