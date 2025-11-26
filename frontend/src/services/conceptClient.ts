@@ -1,5 +1,5 @@
-const DEFAULT_BASE_URL = "http://localhost:8000/api";
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || DEFAULT_BASE_URL)
+// Use environment variable for production, default to /api for local dev (Vite will proxy)
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '/api')
   .replace(/\/+$/, "");
 
 export class ConceptApiError extends Error {
