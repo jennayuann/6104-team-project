@@ -167,11 +167,6 @@
         No network data found for this owner yet. Create a network and add nodes to see the visualization.
       </p>
 
-      <!-- Debug Output -->
-      <div v-if="adjacencyDebug" style="margin-top: 1.5rem; padding: 1rem; background: #f8f9fa; border-radius: 8px; border: 1px solid #dee2e6;">
-        <h3 style="margin-top: 0; font-size: 1rem;">Debug Log</h3>
-        <pre style="margin: 0; font-size: 0.85rem; white-space: pre-wrap; word-wrap: break-word; max-height: 400px; overflow-y: auto; background: #fff; padding: 0.75rem; border-radius: 4px; border: 1px solid #dee2e6;">{{ adjacencyDebug }}</pre>
-      </div>
     </section>
 
     <section class="card" style="grid-column: 1 / -1">
@@ -241,7 +236,6 @@ const removeEdgeForm = reactive({
 });
 const adjacency = ref<AdjacencyMap | null>(null);
 const adjacencyLoading = ref(false);
-const adjacencyDebug = ref<string>("");
 const banner = ref<{ type: "success" | "error"; message: string; section: BannerSection } | null>(null);
 const auth = useAuthStore();
 const avatarStore = useAvatarStore();
@@ -294,25 +288,32 @@ async function resolveToUserId(input: string): Promise<string> {
 async function handleCreateNetwork() {
   if (!auth.userId) return;
   let resolvedRoot = createForm.root ? await resolveToUserId(createForm.root) : undefined;
+  // If no root is provided, use the owner as the root node
+  const rootNode = resolvedRoot || auth.userId;
   const payload = {
     owner: auth.userId,
-    root: resolvedRoot,
+    root: rootNode,
   };
   try {
     const result = await MultiSourceNetworkAPI.createNetwork(payload);
-    // Set root node to owner (backend defaults to owner if not provided)
-    rootNodeId.value = resolvedRoot || auth.userId;
+    // Set root node to the resolved root (which defaults to owner)
+    rootNodeId.value = rootNode;
     logActivity(
       "create",
       "createNetwork",
       payload,
       "success",
-      `Network ${result.network} created.`,
+      `Network ${result.network} created with root node: ${rootNode}.`,
     );
     // Clear the form
     createForm.root = "";
-    // Automatically refresh visualization to show the owner node
+    // Automatically refresh visualization to show the owner node immediately
+    // The backend automatically adds the owner as a membership node with source "self"
     await fetchAdjacency();
+    // If adjacency is loaded, render the network to show the owner node
+    if (adjacency.value) {
+      await renderNetwork();
+    }
   } catch (error) {
     logActivity(
       "create",
@@ -446,47 +447,12 @@ async function handleRemoveEdge() {
 async function fetchAdjacency() {
   if (!auth.userId) return;
   adjacencyLoading.value = true;
-  adjacencyDebug.value = "";
 
   try {
-    console.log("=== _getAdjacencyArray Debug ===");
-    console.log("Owner (userId):", auth.userId);
-    console.log("Calling MultiSourceNetworkAPI.getAdjacencyArray...");
-
     const data = await MultiSourceNetworkAPI.getAdjacencyArray({
       owner: auth.userId,
     });
 
-    console.log("Raw adjacency data received:", data);
-    console.log("Number of nodes:", Object.keys(data).length);
-    console.log("Node IDs:", Object.keys(data));
-
-    // Build debug string
-    let debugLog = `=== _getAdjacencyArray Debug ===\n\n`;
-    debugLog += `Owner (userId): ${auth.userId}\n`;
-    debugLog += `Timestamp: ${new Date().toISOString()}\n\n`;
-    debugLog += `Total nodes: ${Object.keys(data).length}\n`;
-    debugLog += `Node IDs: ${Object.keys(data).join(", ")}\n\n`;
-    debugLog += `=== Adjacency Array ===\n`;
-    debugLog += JSON.stringify(data, null, 2);
-    debugLog += `\n\n=== Node Details ===\n`;
-
-    for (const [nodeId, edges] of Object.entries(data)) {
-      debugLog += `\n${nodeId}:\n`;
-      if (edges.length === 0) {
-        debugLog += `  → No outgoing connections\n`;
-      } else {
-        edges.forEach((edge) => {
-          debugLog += `  → Connected to: ${edge.to}\n`;
-          debugLog += `    Source: ${edge.source}\n`;
-          if (edge.weight !== undefined) {
-            debugLog += `    Weight: ${edge.weight}\n`;
-          }
-        });
-      }
-    }
-
-    adjacencyDebug.value = debugLog;
     adjacency.value = data;
 
     // Check if root node is set (it might be the owner or we need to track it)
@@ -504,8 +470,6 @@ async function fetchAdjacency() {
       }
     }
 
-    console.log("All node IDs (including targets):", Array.from(allNodeIds));
-
     // Fetch profile data for all nodes
     await fetchNodeProfiles(Array.from(allNodeIds));
 
@@ -521,11 +485,9 @@ async function fetchAdjacency() {
     await nextTick();
     await renderNetwork();
 
-    console.log("=== End Debug ===\n");
   } catch (error) {
     const errorMsg = formatError(error);
     console.error("Error fetching adjacency:", error);
-    adjacencyDebug.value = `=== Error ===\n\n${errorMsg}\n\nStack: ${error instanceof Error ? error.stack : "N/A"}`;
     logActivity(
       "explorer",
       "_getAdjacencyArray",
@@ -580,11 +542,8 @@ async function fetchNodeProfiles(nodeIds: string[]) {
       const profileResult = await PublicProfileAPI.getProfile({ user: nodeId });
       profile = profileResult[0]?.profile;
 
-      // If profile exists, use headline as display name (or keep username)
+      // If profile exists, store it with the username
       if (profile) {
-        // Prefer headline over username for display, but keep username as fallback
-        const displayName = profile.headline || username;
-
         // Get profile picture URL if available
         if ((profile as any).profilePictureUrl) {
           avatarUrl = (profile as any).profilePictureUrl;
@@ -596,7 +555,7 @@ async function fetchNodeProfiles(nodeIds: string[]) {
         nodeProfiles.value[nodeId] = {
           profile,
           avatarUrl,
-          username: displayName, // Use headline for display, username as identifier
+          username: username, // Store actual username, not headline
         };
       } else {
         // No profile, but we have username from auth
@@ -683,11 +642,10 @@ async function renderNetwork() {
       ? generateBrightColor(nodeId)
       : "#778da9";
 
-    // Use profile headline or username for label
-    // For owner, prefer username from auth if profile headline not available
-    const nodeLabel = nodeId === auth.userId && !profileData.profile?.headline
+    // Use username for label (prefer username over headline)
+    const nodeLabel = nodeId === auth.userId
       ? (auth.username || profileData.username || nodeId)
-      : (profileData.profile?.headline || profileData.username || nodeId);
+      : (profileData.username || nodeId);
 
     const node: any = {
       id: nodeId,
@@ -743,8 +701,8 @@ async function renderNetwork() {
           username: edge.to,
         };
 
-        // Use profile headline or username for label
-        const nodeLabel = profileData.profile?.headline || profileData.username || edge.to;
+        // Use username for label (prefer username over headline)
+        const nodeLabel = profileData.username || edge.to;
 
         nodes.add({
           id: edge.to,

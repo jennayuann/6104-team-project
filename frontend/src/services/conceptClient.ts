@@ -114,6 +114,12 @@ export const UserAuthenticationAPI = {
       "_getUserById",
       payload,
     ),
+  getUserByUsername: (payload: { username: string }) =>
+    postConcept<{ user: string }[]>(
+      "UserAuthentication",
+      "_getUserByUsername",
+      payload,
+    ),
 };
 
 export const LinkedInImportAPI = {
@@ -148,4 +154,36 @@ export const LinkedInImportAPI = {
       "importConnectionsFromJSON",
       payload,
     ),
+};
+
+export interface SemanticConnectionResult {
+  connectionId: string;
+  score: number;
+  text: string;
+  connection?: {
+    _id: string;
+    linkedInConnectionId?: string;
+    firstName?: string;
+    lastName?: string;
+    headline?: string | null;
+    location?: string | null;
+    industry?: string | null;
+    currentPosition?: string | null;
+    currentCompany?: string | null;
+    profileUrl?: string | null;
+    profilePictureUrl?: string | null;
+    summary?: string | null;
+  };
+}
+
+export const SemanticSearchAPI = {
+  searchConnections: (payload: {
+    owner: string;
+    queryText: string;
+    limit?: number;
+  }) => postConcept<{ results: SemanticConnectionResult[] }>(
+    "SemanticSearch",
+    "searchConnections",
+    payload,
+  ),
 };
