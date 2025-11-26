@@ -213,7 +213,7 @@
 
 <script setup lang="ts">
 import { reactive, ref, watch, onMounted, onBeforeUnmount, nextTick } from "vue";
-import { Network, DataSet } from "vis-network/standalone";
+import { Network, DataSet } from "vis-network/standalone/esm/vis-network.js";
 import "vis-network/styles/vis-network.css";
 import StatusBanner from "@/components/StatusBanner.vue";
 import {
