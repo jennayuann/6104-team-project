@@ -115,3 +115,37 @@ export const UserAuthenticationAPI = {
       payload,
     ),
 };
+
+export const LinkedInImportAPI = {
+  connectLinkedInAccount: (payload: {
+    user: string;
+    accessToken: string;
+    refreshToken?: string;
+    expiresAt?: Date;
+    linkedInUserId: string;
+    linkedInEmail?: string;
+    linkedInName?: string;
+  }) => postConcept<{ account: string }>("LinkedInImport", "connectLinkedInAccount", payload),
+  getLinkedInAccount: (payload: { user: string }) =>
+    postConcept<Array<{
+      _id: string;
+      user: string;
+      linkedInUserId: string;
+      linkedInEmail?: string;
+      linkedInName?: string;
+      createdAt: string;
+      lastImportedAt?: string;
+    }>>("LinkedInImport", "_getLinkedInAccount", payload),
+  importConnectionsFromCSV: (payload: { account: string; csvContent: string }) =>
+    postConcept<{ importJob: string; connectionsImported: number }>(
+      "LinkedInImport",
+      "importConnectionsFromCSV",
+      payload,
+    ),
+  importConnectionsFromJSON: (payload: { account: string; jsonContent: string }) =>
+    postConcept<{ importJob: string; connectionsImported: number }>(
+      "LinkedInImport",
+      "importConnectionsFromJSON",
+      payload,
+    ),
+};
