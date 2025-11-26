@@ -503,6 +503,17 @@ export default class LinkedInImportConcept {
   }
 
   /**
+   * Query: Retrieves a connection by internal connection ID.
+   */
+  async _getConnection({
+    connection,
+  }: {
+    connection: Connection;
+  }): Promise<ConnectionDoc[]> {
+    return await this.connections.find({ _id: connection }).toArray();
+  }
+
+  /**
    * Query: Retrieves all import jobs for a LinkedIn account.
    */
   async _getImportJobs({

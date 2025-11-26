@@ -338,3 +338,84 @@ Deno.test("DEBUG: Print adjacency array", async () => {
     await client.close();
   }
 });
+
+Deno.test("E2E: create nodes via createNodeForUser, search by name, then create edges and verify adjacency", async () => {
+  const [db, client] = await testDb();
+  const network = new MultiSourceNetworkConcept(db);
+
+  const owner = "owner:TestUser" as ID;
+  try {
+    // create network
+    await network.createNetwork({ owner });
+
+    // create two nodes via createNodeForUser
+    const a = await network.createNodeForUser({
+      owner,
+      firstName: "John",
+      lastName: "Smith",
+      label: "John Smith",
+    });
+    if (a.error) throw new Error(a.error);
+    const nodeA = a.node as ID;
+
+    const b = await network.createNodeForUser({
+      owner,
+      firstName: "Jane",
+      lastName: "Doe",
+      label: "Jane Doe",
+    });
+    if (b.error) throw new Error(b.error);
+    const nodeB = b.node as ID;
+
+    // search for John
+    const searchJ = await network.searchNodes({ owner, query: "John" });
+    // Expect at least one result and that John's node is present
+    assertEquals(searchJ.total > 0, true);
+    const names = searchJ.results.map((r) => ({
+      first: (r.firstName as string) || "",
+      last: (r.lastName as string) || "",
+      label: (r.label as string) || "",
+    }));
+    const foundJohn = names.some((n) =>
+      n.first === "John" && (n.last === "Smith" || n.label.includes("John"))
+    );
+    assertEquals(foundJohn, true, "Search should return John Smith");
+
+    // search for Doe
+    const searchDoe = await network.searchNodes({ owner, query: "Doe" });
+    assertEquals(searchDoe.total > 0, true);
+    const foundJane = searchDoe.results.some((r) =>
+      (r.firstName as string) === "Jane" || (r.lastName as string) === "Doe" ||
+      (r.label as string).includes("Jane")
+    );
+    assertEquals(foundJane, true, "Search should return Jane Doe");
+
+    // create an edge from John -> Jane
+    await network.addEdge({
+      owner,
+      from: nodeA,
+      to: nodeB,
+      source: source1,
+      weight: 7,
+    });
+
+    // verify edge exists
+    const edges = await network.edges.find({ owner }).toArray();
+    const edgeExists = edges.some((e) =>
+      e.from === nodeA && e.to === nodeB && e.weight === 7
+    );
+    assertEquals(
+      edgeExists,
+      true,
+      "Edge John->Jane should exist with weight 7",
+    );
+
+    // verify adjacency
+    const adjacency = await network._getAdjacencyArray(owner);
+    assertEquals(Array.isArray(adjacency[nodeA]), true);
+    assertEquals(adjacency[nodeA][0].to, nodeB);
+    assertEquals(adjacency[nodeA][0].weight, 7);
+  } finally {
+    await client.close();
+  }
+});

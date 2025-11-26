@@ -51,15 +51,46 @@ interface EdgeDoc {
   weight?: number;
 }
 
+/**
+ * Canonical Node document stored by MultiSourceNetwork for search and display.
+ */
+interface NodeDoc {
+  _id: ID;
+  // map of external source -> external id (e.g. { linkedin: 'urn:li:person:xyz' })
+  sourceIds?: Record<string, string>;
+  label?: string; // human display name
+  firstName?: string;
+  lastName?: string;
+  headline?: string;
+  profileUrl?: string;
+  avatarUrl?: string;
+  tags?: string[];
+  createdAt: Date;
+  updatedAt?: Date;
+}
+
 export default class MultiSourceNetworkConcept {
   networks: Collection<NetworkDoc>;
   memberships: Collection<MembershipDoc>;
   edges: Collection<EdgeDoc>;
+  nodes: Collection<NodeDoc>;
 
   constructor(private readonly db: Db) {
     this.networks = this.db.collection(PREFIX + "networks");
     this.memberships = this.db.collection(PREFIX + "memberships");
     this.edges = this.db.collection(PREFIX + "edges");
+    this.nodes = this.db.collection(PREFIX + "nodes");
+    // Create a basic text index for searching node labels/headlines/tags
+    this.nodes.createIndex(
+      {
+        label: "text",
+        headline: "text",
+        tags: "text",
+        firstName: "text",
+        lastName: "text",
+      },
+      { name: "NodesTextIndex", default_language: "english" },
+    ).catch(() => {});
   }
 
   /**
@@ -121,25 +152,398 @@ export default class MultiSourceNetworkConcept {
    *   Creates or updates a `Memberships` entry by adding `source` to the node’s source set.
    */
   async addNodeToNetwork(
-    { owner, node, source }: { owner: Owner; node: Node; source: Source },
-  ): Promise<Empty | { error: string }> {
-    const membership = await this.memberships.findOne({ owner, node });
+    {
+      owner,
+      node,
+      source,
+      nodeMeta,
+    }: {
+      owner: Owner;
+      node?: Node;
+      source: Source;
+      nodeMeta?: {
+        externalId?: string;
+        label?: string;
+        avatarUrl?: string;
+        sourceIds?: Record<string, string>;
+      };
+    },
+  ): Promise<{ error?: string; node?: ID }> {
+    // If no node ID provided but nodeMeta is, create or update canonical node
+    let nodeId: Node | undefined = node;
+    if (!nodeId && nodeMeta) {
+      // When creating a node via nodeMeta through addNodeToNetwork, a node is created and the owner will be added as a member
+      // Prepare sourceIds (prefer provided sourceIds, else map externalId)
+      const sourceIds =
+        nodeMeta.sourceIds && Object.keys(nodeMeta.sourceIds || {}).length > 0
+          ? nodeMeta.sourceIds
+          : (nodeMeta.externalId
+            ? { [source]: nodeMeta.externalId }
+            : undefined);
+      // Derive names from label if possible
+      let firstName: string | undefined;
+      let lastName: string | undefined;
+      if (nodeMeta.label) {
+        const parts = nodeMeta.label.trim().split(/\s+/);
+        if (parts.length >= 2) {
+          firstName = parts[0];
+          lastName = parts.slice(1).join(" ");
+        } else if (parts.length === 1) {
+          firstName = parts[0];
+        }
+      }
+
+      const res = await this.createNodeForUser({
+        owner,
+        firstName: firstName || "",
+        lastName: lastName || "",
+        label: nodeMeta.label,
+        avatarUrl: nodeMeta.avatarUrl,
+        sourceIds,
+      });
+      if (res.error) return { error: res.error };
+      nodeId = res.node as Node;
+    }
+    if (!nodeId) {
+      return { error: "node or nodeMeta required" };
+    }
+
+    const membership = await this.memberships.findOne({ owner, node: nodeId });
     if (!membership) {
+      await this.memberships.insertOne({
+        _id: freshID(),
+        owner,
+        node: nodeId,
+        sources: { [source]: true },
+      });
+      return { node: nodeId };
+    }
+
+    await this.memberships.updateOne(
+      { owner, node: nodeId },
+      { $set: { [`sources.${source}`]: true } },
+    );
+
+    return { node: nodeId };
+  }
+
+  // NOTE: createNode was removed; use createNodeForUser for owner-scoped creation.
+
+  async updateNode(
+    { node, meta, updater }: {
+      node: Node;
+      meta?: Partial<NodeDoc>;
+      updater: Owner;
+    },
+  ): Promise<{ node?: ID; error?: string }> {
+    const existing = await this.nodes.findOne({ _id: node });
+    if (!existing) return { error: `Node ${node} not found` };
+
+    // Require updater to be a member of the node
+    const membership = await this.memberships.findOne({ owner: updater, node });
+    if (!membership) return { error: `Not authorized to update node ${node}` };
+
+    const updateData: Record<string, unknown> = {
+      ...(meta || {}),
+      updatedAt: new Date(),
+    };
+    await this.nodes.updateOne({ _id: node }, { $set: updateData });
+    return { node };
+  }
+
+  /**
+   * searchNodes ({ query, limit = 20, offset = 0, publicOnly = true })
+   * Returns a paginated list of node metadata for UI listing.
+   */
+  async searchNodes(
+    { owner, query, limit = 20, offset = 0 }: {
+      owner: Owner;
+      query?: string;
+      limit?: number;
+      offset?: number;
+    },
+  ): Promise<{ results: Array<Record<string, unknown>>; total: number }> {
+    // Only return nodes that the owner has membership to. Node visibility is controlled by memberships.
+    // Get membership node ids for owner
+    const memberships = await this.memberships.find({ owner }, {
+      projection: { node: 1 },
+    }).toArray();
+    const nodeIds = memberships.map((m) => m.node);
+    if (nodeIds.length === 0) return { results: [], total: 0 };
+
+    const filter: Record<string, unknown> = { _id: { $in: nodeIds } };
+    if (query && query.trim() !== "") {
+      const q = query.trim();
+      // Only search against firstName and lastName fields (case-insensitive substring match)
+      filter.$or = [
+        { firstName: { $regex: q, $options: "i" } },
+        { lastName: { $regex: q, $options: "i" } },
+      ];
+    }
+
+    const total = await this.nodes.countDocuments(filter);
+    const cursor = this.nodes.find(filter, {
+      projection: {
+        label: 1,
+        firstName: 1,
+        lastName: 1,
+        headline: 1,
+        avatarUrl: 1,
+        profileUrl: 1,
+        sourceIds: 1,
+      },
+    });
+    const results = await cursor.skip(offset).limit(limit).toArray();
+    return { results, total };
+  }
+
+  /**
+   * addOrMigrateNodeFromSource ({ owner, legacyNodeId, source, nodeMeta, externalId }): { node }
+   * - Creates or finds a canonical node from source+externalId/nodeMeta
+   * - Migrates an existing membership that referenced the legacy node id (e.g., LinkedInImport connection id)
+   *   to reference the canonical node, merging sources if necessary.
+   */
+  async addOrMigrateNodeFromSource({
+    owner,
+    legacyNodeId,
+    source,
+    nodeMeta,
+    externalId,
+  }: {
+    owner: Owner;
+    legacyNodeId?: Node;
+    source: Source;
+    nodeMeta?: Partial<NodeDoc> | Record<string, unknown>;
+    externalId?: string;
+  }): Promise<{ node: ID }> {
+    // Create (or find existing) canonical node scoped to owner
+    // Prepare sourceIds: prefer provided nodeMeta.sourceIds, otherwise use externalId mapping
+    const providedMeta = (nodeMeta || {}) as Partial<NodeDoc>;
+    const sourceIds = providedMeta.sourceIds &&
+        Object.keys(providedMeta.sourceIds || {}).length > 0
+      ? providedMeta.sourceIds
+      : (externalId ? { [source]: externalId } : undefined);
+
+    // Derive first/last names if available in meta or label
+    let firstName = providedMeta.firstName;
+    let lastName = providedMeta.lastName;
+    if ((!firstName || !lastName) && providedMeta.label) {
+      const parts = (providedMeta.label || "").trim().split(/\s+/);
+      if (parts.length >= 2) {
+        firstName = firstName || parts[0];
+        lastName = lastName || parts.slice(1).join(" ");
+      } else if (parts.length === 1) {
+        firstName = firstName || parts[0];
+      }
+    }
+
+    const createRes = await this.createNodeForUser({
+      owner,
+      firstName: firstName || "",
+      lastName: lastName || "",
+      label: providedMeta.label,
+      headline: providedMeta.headline,
+      profileUrl: providedMeta.profileUrl,
+      avatarUrl: providedMeta.avatarUrl,
+      tags: providedMeta.tags,
+      sourceIds,
+    });
+    if (createRes.error) throw new Error(createRes.error);
+    const node = createRes.node as ID;
+    // Update metadata on the canonical node to reflect latest nodeMeta (owner must be updater)
+    if (node && nodeMeta) {
+      await this.updateNode({
+        node: node as Node,
+        meta: nodeMeta as Partial<NodeDoc>,
+        updater: owner,
+      });
+    }
+
+    // Find any existing membership that used the legacy node id
+    if (legacyNodeId) {
+      const oldMembership = await this.memberships.findOne({
+        owner,
+        node: legacyNodeId,
+      });
+      const canonicalMembership = await this.memberships.findOne({
+        owner,
+        node,
+      });
+
+      if (oldMembership && !canonicalMembership) {
+        // Update the existing legacy membership document to point to canonical node id
+        await this.memberships.updateOne({ _id: oldMembership._id }, {
+          $set: { node },
+        });
+        // Ensure source is set
+        await this.memberships.updateOne({ _id: oldMembership._id }, {
+          $set: { [`sources.${source}`]: true },
+        });
+        return { node };
+      }
+
+      if (oldMembership && canonicalMembership) {
+        // Merge sources into canonical membership
+        const mergedSources = {
+          ...(canonicalMembership.sources || {}),
+          ...(oldMembership.sources || {}),
+          [source]: true,
+        } as Record<string, true>;
+        await this.memberships.updateOne({ _id: canonicalMembership._id }, {
+          $set: { sources: mergedSources },
+        });
+        // Remove legacy membership
+        await this.memberships.deleteOne({ _id: oldMembership._id });
+        return { node };
+      }
+
+      if (!oldMembership && !canonicalMembership) {
+        // Create new membership for owner -> canonical node
+        await this.memberships.insertOne({
+          _id: freshID(),
+          owner,
+          node,
+          sources: { [source]: true },
+        });
+        return { node };
+      }
+
+      if (!oldMembership && canonicalMembership) {
+        // Just ensure the source is present
+        await this.memberships.updateOne({ _id: canonicalMembership._id }, {
+          $set: { [`sources.${source}`]: true },
+        });
+        return { node };
+      }
+    }
+
+    // No legacy membership to migrate; ensure there's a membership for owner->node
+    const existing = await this.memberships.findOne({ owner, node });
+    if (!existing) {
       await this.memberships.insertOne({
         _id: freshID(),
         owner,
         node,
         sources: { [source]: true },
       });
-      return {};
+    } else {
+      await this.memberships.updateOne({ _id: existing._id }, {
+        $set: { [`sources.${source}`]: true },
+      });
     }
 
-    await this.memberships.updateOne(
-      { owner, node },
-      { $set: { [`sources.${source}`]: true } },
-    );
+    return { node };
+  }
 
-    return {};
+  /**
+   * createNodeForUser ({ owner, firstName, lastName, label?, headline?, profileUrl?, avatarUrl?, tags?, sourceIds? })
+   * Convenience helper for frontend: requires firstName and lastName, creates a node owned by the user,
+   * and adds a membership linking the user to the node.
+   */
+  async createNodeForUser({
+    owner,
+    firstName,
+    lastName,
+    label,
+    headline,
+    profileUrl,
+    avatarUrl,
+    tags,
+    sourceIds,
+  }: {
+    owner: Owner;
+    firstName?: string;
+    lastName?: string;
+    label?: string;
+    headline?: string;
+    profileUrl?: string;
+    avatarUrl?: string;
+    tags?: string[];
+    sourceIds?: Record<string, string>;
+  }): Promise<{ node?: ID; error?: string }> {
+    // Accept either explicit first+last name, or a label we can derive names from.
+    let fn = firstName?.trim();
+    let ln = lastName?.trim();
+    if ((!fn || fn === "") && (!ln || ln === "") && label) {
+      const parts = (label || "").trim().split(/\s+/);
+      if (parts.length >= 2) {
+        fn = parts[0];
+        ln = parts.slice(1).join(" ");
+      } else if (parts.length === 1) {
+        fn = parts[0];
+      }
+    }
+
+    if (
+      (!fn || fn === "") && (!ln || ln === "") &&
+      (!label || label.trim() === "")
+    ) {
+      return {
+        error: "firstName+lastName or label is required to create a node",
+      };
+    }
+
+    const displayLabel = label && label.trim() !== ""
+      ? label.trim()
+      : `${(fn || "").trim()} ${(ln || "").trim()}`.trim();
+
+    // If sourceIds provided, try to find an existing node for this owner
+    if (sourceIds && Object.keys(sourceIds).length > 0) {
+      for (const k of Object.keys(sourceIds)) {
+        const existing = await this.nodes.findOne({
+          [`sourceIds.${k}`]: sourceIds[k as keyof typeof sourceIds],
+        });
+        if (existing) {
+          const nodeId = (existing._id as unknown) as ID;
+          // ensure membership exists
+          const existingMembership = await this.memberships.findOne({
+            owner,
+            node: nodeId,
+          });
+          if (!existingMembership) {
+            await this.memberships.insertOne({
+              _id: freshID(),
+              owner,
+              node: nodeId,
+              sources: { ["user" as unknown as Source]: true },
+            });
+          }
+          return { node: nodeId };
+        }
+      }
+    }
+
+    // Insert a new node
+    const nodeId = freshID() as ID;
+    const now = new Date();
+    const insertDoc: NodeDoc = {
+      _id: nodeId,
+      createdAt: now,
+      updatedAt: now,
+      label: displayLabel,
+      firstName: fn,
+      lastName: ln,
+      headline: headline?.trim(),
+      profileUrl: profileUrl?.trim(),
+      avatarUrl: avatarUrl?.trim(),
+      tags,
+      ...(sourceIds ? { sourceIds } : {}),
+    } as NodeDoc;
+
+    await this.nodes.insertOne(insertDoc as unknown as NodeDoc);
+
+    // Ensure membership exists for owner -> node
+    const existing = await this.memberships.findOne({ owner, node: nodeId });
+    if (!existing) {
+      await this.memberships.insertOne({
+        _id: freshID(),
+        owner,
+        node: nodeId,
+        sources: { ["user" as unknown as Source]: true },
+      });
+    }
+
+    return { node: nodeId };
   }
 
   /**
