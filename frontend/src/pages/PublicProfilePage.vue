@@ -147,6 +147,8 @@ import { RouterLink } from "vue-router";
 import StatusBanner from "@/components/StatusBanner.vue";
 import {
   PublicProfileAPI,
+  SemanticSearchAPI,
+  UserAuthenticationAPI,
   type PublicProfile,
   ConceptApiError,
 } from "@/services/conceptClient";
@@ -244,14 +246,34 @@ async function fetchProfile() {
   inspectLoading.value = true;
   fetchedProfile.value = null;
   inspectResult.value = "";
-  const targetId = inspectUser.value === activeUsername.value
-    ? activeUserId.value
-    : inspectUser.value;
+
+  let targetId = inspectUser.value;
+
+  // If it's the current user's username, use their ID
+  if (inspectUser.value === activeUsername.value) {
+    targetId = activeUserId.value;
+  } else {
+    // Try to resolve username to user ID
+    // Assuming usernames are unique for now
+    try {
+      const userResult = await UserAuthenticationAPI.getUserByUsername({
+        username: inspectUser.value
+      });
+      if (userResult.length > 0) {
+        targetId = userResult[0].user;
+      }
+      // If username lookup fails, try using the input as user ID directly
+    } catch (error) {
+      // If username lookup fails, assume it's already a user ID
+      console.log("Username lookup failed, treating as user ID:", error);
+    }
+  }
+
   const payload = { user: targetId };
   try {
     const result = await PublicProfileAPI.getProfile(payload);
     if (result.length === 0) {
-      inspectResult.value = "No profile found for this user.";
+      inspectResult.value = `No profile found for "${inspectUser.value}".`;
       avatarUrl.value = null;
     } else {
       fetchedProfile.value = result[0].profile;

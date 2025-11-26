@@ -2,10 +2,10 @@
   <div class="page-grid">
     <div class="card" style="grid-column: 1 / -1; margin-bottom: 1rem;">
       <p class="muted" style="margin: 0;">
-        <strong>Note:</strong> Manually enter nodes and edges through ID for now. This will change to more automatic node adding with LinkedIn import and user-friendly interface by not using node IDs.
+        <strong>⚠️ Warning:</strong> Assuming all usernames are unique for now. You can add nodes and edges using usernames instead of user IDs.
       </p>
       <p class="muted" style="margin: 0.5rem 0 0 0;">
-        <strong>User Lookup:</strong> Can only look people up through user ID for now, but will be replaced with a more user-friendly method like their username.
+        <strong>Note:</strong> Nodes and edges can be added using usernames. The system will automatically resolve usernames to user IDs.
       </p>
     </div>
     <section class="card">
@@ -20,8 +20,8 @@
       />
       <form class="form-grid" @submit.prevent="handleCreateNetwork">
         <label>
-          Root Node (optional)
-          <input v-model.trim="createForm.root" />
+          Root Node (optional - Username or User ID)
+          <input v-model.trim="createForm.root" placeholder="Enter username or user ID" />
         </label>
         <button type="submit">Create Network</button>
       </form>
@@ -36,8 +36,8 @@
       />
       <form class="form-grid" @submit.prevent="handleSetRoot">
         <label>
-          Root Node
-          <input v-model.trim="rootForm.root" required />
+          Root Node (Username or User ID)
+          <input v-model.trim="rootForm.root" required placeholder="Enter username or user ID" />
         </label>
         <button type="submit">Set Root</button>
       </form>
@@ -52,8 +52,8 @@
       />
       <form class="form-grid" @submit.prevent="handleAddNode">
         <label>
-          Node ID
-          <input v-model.trim="nodeForm.node" required />
+          Node (Username or User ID)
+          <input v-model.trim="nodeForm.node" required placeholder="Enter username or user ID" />
         </label>
         <label>
           Source Tag
@@ -72,8 +72,8 @@
         @submit.prevent="handleRemoveNode"
       >
         <label>
-          Node ID
-          <input v-model.trim="removeNodeForm.node" required />
+          Node (Username or User ID)
+          <input v-model.trim="removeNodeForm.node" required placeholder="Enter username or user ID" />
         </label>
         <label>
           Source (optional)
@@ -95,12 +95,12 @@
       />
       <form class="form-grid" @submit.prevent="handleAddEdge">
         <label>
-          From Node
-          <input v-model.trim="edgeForm.from" required />
+          From Node (Username or User ID)
+          <input v-model.trim="edgeForm.from" required placeholder="Enter username or user ID" />
         </label>
         <label>
-          To Node
-          <input v-model.trim="edgeForm.to" required />
+          To Node (Username or User ID)
+          <input v-model.trim="edgeForm.to" required placeholder="Enter username or user ID" />
         </label>
         <label>
           Source
@@ -119,12 +119,12 @@
         @submit.prevent="handleRemoveEdge"
       >
         <label>
-          From Node
-          <input v-model.trim="removeEdgeForm.from" required />
+          From Node (Username or User ID)
+          <input v-model.trim="removeEdgeForm.from" required placeholder="Enter username or user ID" />
         </label>
         <label>
-          To Node
-          <input v-model.trim="removeEdgeForm.to" required />
+          To Node (Username or User ID)
+          <input v-model.trim="removeEdgeForm.to" required placeholder="Enter username or user ID" />
         </label>
         <label>
           Source
@@ -267,16 +267,41 @@ function logActivity(
   showBanner(section, status, message);
 }
 
+/**
+ * Resolves a username to user ID, or returns the input if it's already a user ID.
+ * Assumes usernames are unique.
+ */
+async function resolveToUserId(input: string): Promise<string> {
+  // If it looks like a UUID (user ID format), return as-is
+  if (input.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+    return input;
+  }
+
+  // Try to resolve as username
+  try {
+    const userResult = await UserAuthenticationAPI.getUserByUsername({ username: input });
+    if (userResult.length > 0) {
+      return userResult[0].user;
+    }
+  } catch (error) {
+    console.warn(`Failed to resolve username "${input}":`, error);
+  }
+
+  // If resolution fails, assume it's a user ID anyway
+  return input;
+}
+
 async function handleCreateNetwork() {
   if (!auth.userId) return;
+  let resolvedRoot = createForm.root ? await resolveToUserId(createForm.root) : undefined;
   const payload = {
     owner: auth.userId,
-    root: createForm.root || undefined,
+    root: resolvedRoot,
   };
   try {
     const result = await MultiSourceNetworkAPI.createNetwork(payload);
     // Set root node to owner (backend defaults to owner if not provided)
-    rootNodeId.value = payload.root || auth.userId;
+    rootNodeId.value = resolvedRoot || auth.userId;
     logActivity(
       "create",
       "createNetwork",
@@ -301,10 +326,11 @@ async function handleCreateNetwork() {
 
 async function handleSetRoot() {
   if (!auth.userId) return;
-  const payload = { owner: auth.userId, root: rootForm.root };
+  const resolvedRoot = await resolveToUserId(rootForm.root);
+  const payload = { owner: auth.userId, root: resolvedRoot };
   try {
     await MultiSourceNetworkAPI.setRootNode(payload);
-    rootNodeId.value = payload.root;
+    rootNodeId.value = resolvedRoot;
     logActivity("root", "setRootNode", payload, "success", "Root node updated.");
     // Refresh visualization if adjacency is already loaded
     if (adjacency.value) {
@@ -317,10 +343,14 @@ async function handleSetRoot() {
 
 async function handleAddNode() {
   if (!auth.userId) return;
-  const payload = { owner: auth.userId, ...nodeForm };
+  const resolvedNode = await resolveToUserId(nodeForm.node);
+  const payload = { owner: auth.userId, node: resolvedNode, source: nodeForm.source };
   try {
     await MultiSourceNetworkAPI.addNodeToNetwork(payload);
     logActivity("nodes", "addNodeToNetwork", payload, "success", "Node stored.");
+    // Clear form
+    nodeForm.node = "";
+    nodeForm.source = "";
     // Automatically refresh visualization
     await fetchAdjacency();
   } catch (error) {
@@ -330,9 +360,10 @@ async function handleAddNode() {
 
 async function handleRemoveNode() {
   if (!auth.userId) return;
+  const resolvedNode = await resolveToUserId(removeNodeForm.node);
   const payload = {
     owner: auth.userId,
-    node: removeNodeForm.node,
+    node: resolvedNode,
     source: removeNodeForm.source || undefined,
   };
   try {
@@ -346,6 +377,9 @@ async function handleRemoveNode() {
         ? `Source ${payload.source} detached.`
         : "Node removed entirely.",
     );
+    // Clear form
+    removeNodeForm.node = "";
+    removeNodeForm.source = "";
     // Automatically refresh visualization
     await fetchAdjacency();
   } catch (error) {
@@ -361,14 +395,23 @@ async function handleRemoveNode() {
 
 async function handleAddEdge() {
   if (!auth.userId) return;
+  const resolvedFrom = await resolveToUserId(edgeForm.from);
+  const resolvedTo = await resolveToUserId(edgeForm.to);
   const payload = {
     owner: auth.userId,
-    ...edgeForm,
+    from: resolvedFrom,
+    to: resolvedTo,
+    source: edgeForm.source,
     weight: Number.isFinite(edgeForm.weight) ? edgeForm.weight : undefined,
   };
   try {
     await MultiSourceNetworkAPI.addEdge(payload);
     logActivity("edges", "addEdge", payload, "success", "Edge saved.");
+    // Clear form
+    edgeForm.from = "";
+    edgeForm.to = "";
+    edgeForm.source = "";
+    edgeForm.weight = undefined;
     // Automatically refresh visualization
     await fetchAdjacency();
   } catch (error) {
@@ -378,10 +421,21 @@ async function handleAddEdge() {
 
 async function handleRemoveEdge() {
   if (!auth.userId) return;
-  const payload = { owner: auth.userId, ...removeEdgeForm };
+  const resolvedFrom = await resolveToUserId(removeEdgeForm.from);
+  const resolvedTo = await resolveToUserId(removeEdgeForm.to);
+  const payload = {
+    owner: auth.userId,
+    from: resolvedFrom,
+    to: resolvedTo,
+    source: removeEdgeForm.source
+  };
   try {
     await MultiSourceNetworkAPI.removeEdge(payload);
     logActivity("edges", "removeEdge", payload, "success", "Edge removed.");
+    // Clear form
+    removeEdgeForm.from = "";
+    removeEdgeForm.to = "";
+    removeEdgeForm.source = "";
     // Automatically refresh visualization
     await fetchAdjacency();
   } catch (error) {
