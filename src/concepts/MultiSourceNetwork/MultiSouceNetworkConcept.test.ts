@@ -411,7 +411,7 @@ Deno.test("E2E: create nodes via createNodeForUser, search by name, then create 
     );
 
     // verify adjacency
-    const adjacency = await network._getAdjacencyArray(owner);
+    const adjacency = await network._getAdjacencyArray({ owner });
     assertEquals(Array.isArray(adjacency[nodeA]), true);
     assertEquals(adjacency[nodeA][0].to, nodeB);
     assertEquals(adjacency[nodeA][0].weight, 7);
