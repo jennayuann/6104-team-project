@@ -47,6 +47,11 @@ export interface AdjacencyMap {
   [node: string]: Array<{ to: string; source: string; weight?: number }>;
 }
 
+export interface AdjacencyResponse {
+  adjacency: AdjacencyMap;
+  nodeLabels: Record<string, string | undefined>;
+}
+
 export const MultiSourceNetworkAPI = {
   createNetwork: (payload: { owner: string; root?: string }) =>
     postConcept<{ network: string }>("MultiSourceNetwork", "createNetwork", payload),
@@ -73,7 +78,7 @@ export const MultiSourceNetworkAPI = {
     source: string;
   }) => postConcept("MultiSourceNetwork", "removeEdge", payload),
   getAdjacencyArray: (payload: { owner: string }) =>
-    postConcept<AdjacencyMap>("MultiSourceNetwork", "_getAdjacencyArray", payload),
+    postConcept<AdjacencyResponse>("MultiSourceNetwork", "_getAdjacencyArray", payload),
 };
 
 export interface PublicProfile {

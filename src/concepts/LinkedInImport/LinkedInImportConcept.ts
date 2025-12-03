@@ -382,12 +382,13 @@ export default class LinkedInImportConcept {
     if (existingConnection) {
       // Update existing connection
       console.log(`[LinkedInImport] addConnection: Updating existing connection ${existingConnection._id}`);
+      console.log(`[LinkedInImport] addConnection: Update data - firstName: "${firstName}", lastName: "${lastName}"`);
       await this.connections.updateOne(
         { _id: existingConnection._id },
         {
           $set: {
-            ...(firstName !== undefined && { firstName }),
-            ...(lastName !== undefined && { lastName }),
+            ...(firstName !== undefined && firstName !== null && { firstName }),
+            ...(lastName !== undefined && lastName !== null && { lastName }),
             ...(headline !== undefined && { headline }),
             ...(location !== undefined && { location }),
             ...(industry !== undefined && { industry }),
@@ -521,6 +522,30 @@ export default class LinkedInImportConcept {
   /**
    * Query: Retrieves a connection by LinkedIn connection ID.
    */
+  /**
+   * Query: Get a connection by its connection ID (not LinkedIn ID)
+   * _getConnection (connection: Connection): { connection: ConnectionDoc }[]
+   */
+  async _getConnection({
+    connection,
+  }: {
+    connection: Connection;
+  }): Promise<Array<{ connection: ConnectionDoc }>> {
+    console.log(`[LinkedInImport] _getConnection: Looking up connection ${String(connection)}`);
+    const connectionDoc = await this.connections.findOne({ _id: connection });
+    if (!connectionDoc) {
+      console.log(`[LinkedInImport] _getConnection: Connection ${String(connection)} not found in database`);
+      return [];
+    }
+    console.log(`[LinkedInImport] _getConnection: Found connection:`, {
+      _id: connectionDoc._id,
+      firstName: connectionDoc.firstName,
+      lastName: connectionDoc.lastName,
+      linkedInConnectionId: connectionDoc.linkedInConnectionId,
+    });
+    return [{ connection: connectionDoc }];
+  }
+
   async _getConnectionByLinkedInId({
     account,
     linkedInConnectionId,

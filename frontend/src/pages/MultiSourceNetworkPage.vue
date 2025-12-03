@@ -214,6 +214,7 @@ import StatusBanner from "@/components/StatusBanner.vue";
 import {
   MultiSourceNetworkAPI,
   type AdjacencyMap,
+  type AdjacencyResponse,
   ConceptApiError,
   PublicProfileAPI,
   type PublicProfile,
@@ -235,6 +236,7 @@ const removeEdgeForm = reactive({
   source: "",
 });
 const adjacency = ref<AdjacencyMap | null>(null);
+dconst nodeLabels = ref<Record<string, string | undefined>>({});
 const adjacencyLoading = ref(false);
 const banner = ref<{ type: "success" | "error"; message: string; section: BannerSection } | null>(null);
 const auth = useAuthStore();
@@ -453,18 +455,33 @@ async function fetchAdjacency() {
       owner: auth.userId,
     });
 
-    adjacency.value = data;
+    // Handle both old format (just adjacency) and new format ({ adjacency, nodeLabels })
+    if (!data) {
+      console.error("getAdjacencyArray returned null or undefined");
+      adjacency.value = null;
+      nodeLabels.value = {};
+    } else if (data && typeof data === 'object' && 'adjacency' in data) {
+      // New format: { adjacency, nodeLabels }
+      adjacency.value = data.adjacency || {};
+      nodeLabels.value = data.nodeLabels || {};
+      console.log("Loaded adjacency data (new format):", Object.keys(adjacency.value).length, "nodes");
+    } else {
+      // Fallback for old format (just adjacency object)
+      adjacency.value = data as AdjacencyMap;
+      nodeLabels.value = {};
+      console.log("Loaded adjacency data (old format):", Object.keys(adjacency.value).length, "nodes");
+    }
 
     // Check if root node is set (it might be the owner or we need to track it)
     // For now, we'll use the first node or owner as root if not explicitly set
-    if (!rootNodeId.value && Object.keys(data).length > 0) {
+    if (!rootNodeId.value && Object.keys(adjacency.value).length > 0) {
       rootNodeId.value = auth.userId;
     }
 
     // Collect all node IDs (sources and targets)
-    const allNodeIds = new Set<string>(Object.keys(data));
-    for (const nodeId of Object.keys(data)) {
-      const edges = data[nodeId] || [];
+    const allNodeIds = new Set<string>(Object.keys(adjacency.value));
+    for (const nodeId of Object.keys(adjacency.value)) {
+      const edges = adjacency.value[nodeId] || [];
       for (const edge of edges) {
         allNodeIds.add(edge.to);
       }
@@ -483,11 +500,21 @@ async function fetchAdjacency() {
 
     // Render network after data is loaded
     await nextTick();
-    await renderNetwork();
+    try {
+      await renderNetwork();
+    } catch (renderError) {
+      console.error("Error rendering network:", renderError);
+      console.error("Render error details:", renderError instanceof Error ? renderError.stack : String(renderError));
+    }
 
   } catch (error) {
     const errorMsg = formatError(error);
     console.error("Error fetching adjacency:", error);
+    console.error("Error details:", error instanceof Error ? error.stack : String(error));
+    console.error("Error type:", error instanceof Error ? error.constructor.name : typeof error);
+    if (error && typeof error === 'object' && 'message' in error) {
+      console.error("Error message:", (error as any).message);
+    }
     logActivity(
       "explorer",
       "_getAdjacencyArray",
@@ -495,6 +522,9 @@ async function fetchAdjacency() {
       "error",
       errorMsg,
     );
+    // Reset adjacency on error to prevent stale data
+    adjacency.value = null;
+    nodeLabels.value = {};
   } finally {
     adjacencyLoading.value = false;
   }
@@ -592,6 +622,8 @@ async function renderNetwork() {
     return;
   }
 
+  console.log("Node labels available:", nodeLabels.value);
+
   console.log(`Rendering network with ${nodeCount} node(s)`);
 
   // Wait for container to be available - try multiple times
@@ -642,10 +674,12 @@ async function renderNetwork() {
       ? generateBrightColor(nodeId)
       : "#778da9";
 
-    // Use username for label (prefer username over headline)
-    const nodeLabel = nodeId === auth.userId
-      ? (auth.username || profileData.username || nodeId)
-      : (profileData.username || nodeId);
+    // Use label from membership if available, otherwise fall back to username/profile
+    const membershipLabel = nodeLabels.value[nodeId];
+    const nodeLabel = membershipLabel ||
+      (nodeId === auth.userId
+        ? (auth.username || profileData.username || nodeId)
+        : (profileData.username || nodeId));
 
     const node: any = {
       id: nodeId,
@@ -701,8 +735,9 @@ async function renderNetwork() {
           username: edge.to,
         };
 
-        // Use username for label (prefer username over headline)
-        const nodeLabel = profileData.username || edge.to;
+        // Use label from membership if available, otherwise fall back to username
+        const membershipLabel = nodeLabels.value[edge.to];
+        const nodeLabel = membershipLabel || profileData.username || edge.to;
 
         nodes.add({
           id: edge.to,
@@ -734,6 +769,13 @@ async function renderNetwork() {
         size: 14,
         face: "Inter",
       },
+      margin: 20, // Add margin around nodes for better spacing
+      borderWidth: 2,
+      chosen: {
+        node: (values: any) => {
+          values.borderWidth = 4;
+        },
+      },
     },
     edges: {
       arrows: {
@@ -747,6 +789,8 @@ async function renderNetwork() {
         type: "continuous",
         roundness: 0.5,
       },
+      length: 200, // Increase edge length for better spacing
+      width: 2,
     },
     physics: {
       enabled: true,
@@ -756,11 +800,12 @@ async function renderNetwork() {
       },
       // Adjust physics for single node (centered) or multiple nodes
       barnesHut: {
-        gravitationalConstant: nodes.length === 1 ? -500 : -2000,
-        centralGravity: nodes.length === 1 ? 0.1 : 0.3,
-        springLength: nodes.length === 1 ? 200 : 95,
-        springConstant: nodes.length === 1 ? 0.001 : 0.04,
-        damping: 0.09,
+        gravitationalConstant: nodes.length === 1 ? -500 : -3000, // More repulsion for better spacing
+        centralGravity: nodes.length === 1 ? 0.1 : 0.05, // Less central gravity
+        springLength: nodes.length === 1 ? 200 : 250, // Longer spring length for more spacing
+        springConstant: nodes.length === 1 ? 0.001 : 0.03, // Slightly less spring constant
+        damping: nodes.length === 1 ? 0.09 : 0.1, // Slightly more damping
+        avoidOverlap: nodes.length === 1 ? 0 : 1.2, // More overlap avoidance
       },
     },
     interaction: {
