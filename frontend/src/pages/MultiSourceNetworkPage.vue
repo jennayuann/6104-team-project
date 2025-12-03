@@ -237,15 +237,13 @@
             :key="nodeId"
             class="list-item"
           >
-            <strong>
-              {{ ((nodeMetaMap[nodeId]?.firstName || '') + ' ' + (nodeMetaMap[nodeId]?.lastName || '')).trim() || nodeProfiles[nodeId]?.username || nodeId }}
-            </strong>
+            <strong>{{ nodeId }}</strong>
             <p class="muted">
               {{ adjacency[nodeId].length }} outbound connection(s)
             </p>
             <ul style="padding-left: 1.25rem; margin: 0">
               <li v-for="edge in adjacency[nodeId]" :key="edge.to + edge.source">
-                → {{ ((nodeMetaMap[edge.to]?.firstName || '') + ' ' + (nodeMetaMap[edge.to]?.lastName || '')).trim() || nodeProfiles[edge.to]?.username || edge.to }} <span class="muted">({{ edge.source }})</span>
+                → {{ edge.to }} <span class="muted">({{ edge.source }})</span>
                 <span v-if="edge.weight"> · weight {{ edge.weight }}</span>
               </li>
             </ul>
@@ -436,14 +434,35 @@ async function handleAddNode() {
     avatarUrl: createNodeForm.avatarUrl || undefined,
   };
   if (tags.length > 0) createPayload.tags = tags;
+  // Parse sourceIds input: allow comma-separated tokens like "linkedin:123, github:abc" or just "linkedin"
+  if (createNodeForm.source && createNodeForm.source.trim() !== "") {
+    const parts = createNodeForm.source.split(",").map((s: string) => s.trim()).filter((s: string) => s.length > 0);
+    const sourceIds: Record<string, string> = {};
+    for (const p of parts) {
+      // allow key:value or key=val formats
+      const kv = p.includes(":") ? p.split(":", 2) : (p.includes("=") ? p.split("=", 2) : [p, p]);
+      const key = kv[0].trim();
+      const val = (kv[1] || kv[0]).trim();
+      if (key) sourceIds[key] = val;
+    }
+    if (Object.keys(sourceIds).length > 0) createPayload.sourceIds = sourceIds;
+  }
 
   try {
     const created = await MultiSourceNetworkAPI.createNodeForUser(createPayload as any);
-    if (created.error) throw new Error(String(created.error));
-    const nodeId = created.node as string;
+  if (!created || !('node' in created)) throw new Error(String((created as any)?.error || "createNodeForUser failed"));
+  const nodeId = (created as any).node as string;
 
-    // Optionally attach the provided source tag to the membership
-    if (createNodeForm.source && createNodeForm.source.trim() !== "") {
+    // Optionally attach the provided source tag(s) to the membership
+    if (createPayload.sourceIds && typeof createPayload.sourceIds === "object") {
+      for (const k of Object.keys(createPayload.sourceIds as Record<string, string>)) {
+        try {
+          await MultiSourceNetworkAPI.addNodeToNetwork({ owner: auth.userId, node: nodeId, source: k });
+        } catch (e) {
+          // ignore membership attach errors (best-effort)
+        }
+      }
+    } else if (createNodeForm.source && createNodeForm.source.trim() !== "") {
       await MultiSourceNetworkAPI.addNodeToNetwork({ owner: auth.userId, node: nodeId, source: createNodeForm.source });
     }
 

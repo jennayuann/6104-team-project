@@ -396,6 +396,12 @@ export default class MultiSourceNetworkConcept {
     nodeMeta?: Partial<NodeDoc> | Record<string, unknown>;
     externalId?: string;
   }): Promise<{ node: ID }> {
+    // Normalize well-known source identifiers to human-friendly labels used in memberships
+    // For example, accept 'linkedin' (or other lowercase variants) and store as 'LinkedIn'
+    const normalizedSource: Source = (typeof source === "string" &&
+        (source as string).toLowerCase() === "linkedin")
+      ? ("LinkedIn" as Source)
+      : source;
     // Create (or find existing) canonical node scoped to owner
     // Prepare sourceIds: prefer provided nodeMeta.sourceIds, otherwise use externalId mapping
     const providedMeta = (nodeMeta || {}) as Partial<NodeDoc>;
@@ -427,6 +433,7 @@ export default class MultiSourceNetworkConcept {
       avatarUrl: providedMeta.avatarUrl,
       tags: providedMeta.tags,
       sourceIds,
+      skipMembership: true,
     });
     if (createRes.error) throw new Error(createRes.error);
     const node = createRes.node as ID;
@@ -455,9 +462,9 @@ export default class MultiSourceNetworkConcept {
         await this.memberships.updateOne({ _id: oldMembership._id }, {
           $set: { node },
         });
-        // Ensure source is set
+        // Ensure source is set (use normalized source label)
         await this.memberships.updateOne({ _id: oldMembership._id }, {
-          $set: { [`sources.${source}`]: true },
+          $set: { [`sources.${normalizedSource}`]: true },
         });
         return { node };
       }
@@ -467,7 +474,7 @@ export default class MultiSourceNetworkConcept {
         const mergedSources = {
           ...(canonicalMembership.sources || {}),
           ...(oldMembership.sources || {}),
-          [source]: true,
+          [normalizedSource]: true,
         } as Record<string, true>;
         await this.memberships.updateOne({ _id: canonicalMembership._id }, {
           $set: { sources: mergedSources },
@@ -483,7 +490,7 @@ export default class MultiSourceNetworkConcept {
           _id: freshID(),
           owner,
           node,
-          sources: { [source]: true },
+          sources: { [normalizedSource]: true },
         });
         return { node };
       }
@@ -491,7 +498,7 @@ export default class MultiSourceNetworkConcept {
       if (!oldMembership && canonicalMembership) {
         // Just ensure the source is present
         await this.memberships.updateOne({ _id: canonicalMembership._id }, {
-          $set: { [`sources.${source}`]: true },
+          $set: { [`sources.${normalizedSource}`]: true },
         });
         return { node };
       }
@@ -504,11 +511,11 @@ export default class MultiSourceNetworkConcept {
         _id: freshID(),
         owner,
         node,
-        sources: { [source]: true },
+        sources: { [normalizedSource]: true },
       });
     } else {
       await this.memberships.updateOne({ _id: existing._id }, {
-        $set: { [`sources.${source}`]: true },
+        $set: { [`sources.${normalizedSource}`]: true },
       });
     }
 
@@ -546,17 +553,17 @@ export default class MultiSourceNetworkConcept {
 
     // Create an edge from owner node -> canonical node representing the imported connection.
     try {
+      // Upsert an owner->node edge and mark the source as the normalized label.
       await this.edges.updateOne(
-        { owner, from: owner, to: node, source },
+        { owner, from: owner, to: node },
         {
           $setOnInsert: {
             _id: freshID(),
             owner,
             from: owner,
             to: node,
-            source,
           },
-          $set: { weight: undefined },
+          $set: { source: normalizedSource, weight: undefined },
         },
         { upsert: true },
       );
@@ -586,6 +593,7 @@ export default class MultiSourceNetworkConcept {
     avatarUrl,
     tags,
     sourceIds,
+    skipMembership,
   }: {
     owner: Owner;
     firstName?: string;
@@ -596,6 +604,7 @@ export default class MultiSourceNetworkConcept {
     avatarUrl?: string;
     tags?: string[];
     sourceIds?: Record<string, string>;
+    skipMembership?: boolean;
   }): Promise<{ node?: ID; error?: string }> {
     // Accept either explicit first+last name, or a label we can derive names from.
     let fn = firstName?.trim();
@@ -668,9 +677,9 @@ export default class MultiSourceNetworkConcept {
 
     await this.nodes.insertOne(insertDoc as unknown as NodeDoc);
 
-    // Ensure membership exists for owner -> node
+    // Ensure membership exists for owner -> node unless caller requested to skip
     const existing = await this.memberships.findOne({ owner, node: nodeId });
-    if (!existing) {
+    if (!existing && !skipMembership) {
       await this.memberships.insertOne({
         _id: freshID(),
         owner,
@@ -1014,7 +1023,7 @@ export default class MultiSourceNetworkConcept {
    * Returns canonical node documents for the requested ids. This is a lightweight
    * helper used by frontends to fetch display metadata for nodes returned in adjacency maps.
    */
-  async getNodes({ ids }: { ids: string[] }): Promise<NodeDoc[]> {
+  async getNodes({ ids, owner }: { ids: string[]; owner?: Owner }): Promise<Array<Record<string, unknown>>> {
     if (!ids || !Array.isArray(ids) || ids.length === 0) return [];
     const docs = await this.nodes.find(
       { _id: { $in: ids as unknown as ID[] } },
@@ -1031,6 +1040,25 @@ export default class MultiSourceNetworkConcept {
         },
       },
     ).toArray();
-    return docs as NodeDoc[];
+
+    // If owner provided, also fetch membership sources for these node ids and attach as membershipSources
+  const membershipMap: Record<string, Record<string, true>> = {};
+    if (owner) {
+      const memberships = await this.memberships.find({ owner, node: { $in: ids as unknown as ID[] } }).toArray();
+      for (const m of memberships) {
+        const raw = m.sources || {};
+        // Filter out internal/automatic membership keys that should not be shown in the UI
+        // e.g., the backend may add a "user" source when creating nodes; hide that from frontend displays
+        const filtered: Record<string, true> = {};
+        for (const [k, v] of Object.entries(raw)) {
+          if (k === "user") continue;
+          // preserve other sources
+          (filtered as Record<string, true>)[k] = v as true;
+        }
+        membershipMap[m.node as unknown as string] = filtered;
+      }
+    }
+
+  return docs.map((d) => ({ ...(d as unknown as Record<string, unknown>), membershipSources: membershipMap[(d as unknown as Record<string, unknown>)._id as string] || {} }));
   }
 }
