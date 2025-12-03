@@ -361,12 +361,15 @@ export default class LinkedInImportConcept {
     }>;
     rawData?: Record<string, unknown>;
   }): Promise<{ connection: Connection } | { error: string }> {
+    console.log(`[LinkedInImport] addConnection called: account=${account}, linkedInConnectionId=${linkedInConnectionId}, firstName=${firstName}, lastName=${lastName}`);
+
     if (!linkedInConnectionId || linkedInConnectionId.trim() === "") {
       return { error: "linkedInConnectionId is required and cannot be empty" };
     }
 
     const existingAccount = await this.accounts.findOne({ _id: account });
     if (!existingAccount) {
+      console.error(`[LinkedInImport] addConnection ERROR: Account ${account} not found`);
       return { error: `LinkedIn account with ID ${account} not found.` };
     }
 
@@ -378,6 +381,7 @@ export default class LinkedInImportConcept {
 
     if (existingConnection) {
       // Update existing connection
+      console.log(`[LinkedInImport] addConnection: Updating existing connection ${existingConnection._id}`);
       await this.connections.updateOne(
         { _id: existingConnection._id },
         {
@@ -400,10 +404,12 @@ export default class LinkedInImportConcept {
           },
         },
       );
+      console.log(`[LinkedInImport] addConnection SUCCESS: Updated connection ${existingConnection._id} (sync should trigger)`);
       return { connection: existingConnection._id };
     } else {
       // Create new connection
       const connectionId = freshID() as Connection;
+      console.log(`[LinkedInImport] addConnection: Creating new connection ${connectionId}`);
       await this.connections.insertOne({
         _id: connectionId,
         account,
@@ -424,6 +430,7 @@ export default class LinkedInImportConcept {
         importedAt: new Date(),
         rawData,
       });
+      console.log(`[LinkedInImport] addConnection SUCCESS: Created connection ${connectionId} in MongoDB (sync should trigger)`);
       return { connection: connectionId };
     }
   }
@@ -718,23 +725,58 @@ Return ONLY a JSON object mapping CSV column names to ConnectionDoc field names.
 
   /**
    * Helper: Parses CSV content into rows with headers.
+   * Handles LinkedIn's CSV export format which may include a "Notes:" section at the beginning.
    */
   private parseCSV(csvContent: string): { headers: string[]; rows: string[][] } | { error: string } {
-    const lines = csvContent.split("\n").filter((line) => line.trim() !== "");
-    if (lines.length === 0) {
-      return { error: "CSV content is empty" };
+    const allLines = csvContent.split("\n");
+
+    // Find the actual CSV header row by looking for common LinkedIn CSV headers
+    // LinkedIn CSV exports start with "Notes:" followed by a note, then blank lines, then the header
+    let headerLineIndex = -1;
+    const linkedInHeaderKeywords = ["First Name", "Last Name", "URL", "Email", "Company", "Position"];
+
+    for (let i = 0; i < allLines.length; i++) {
+      const line = allLines[i].trim();
+      if (line.length === 0) continue;
+
+      // Check if this line looks like a CSV header (contains multiple LinkedIn keywords)
+      const parsed = this.parseCSVLine(line);
+      if (parsed.length > 0) {
+        const lineLower = line.toLowerCase();
+        const keywordMatches = linkedInHeaderKeywords.filter(keyword =>
+          lineLower.includes(keyword.toLowerCase())
+        ).length;
+
+        // If we find at least 2-3 keywords, this is likely the header row
+        if (keywordMatches >= 2) {
+          headerLineIndex = i;
+          break;
+        }
+      }
     }
 
-    // Parse headers
-    const headers = this.parseCSVLine(lines[0]);
+    if (headerLineIndex === -1) {
+      // Fallback: use first non-empty line as header
+      const nonEmptyLines = allLines.filter((line) => line.trim() !== "");
+      if (nonEmptyLines.length === 0) {
+        return { error: "CSV content is empty" };
+      }
+      headerLineIndex = allLines.indexOf(nonEmptyLines[0]);
+    }
+
+    // Parse headers from the found header line
+    const headers = this.parseCSVLine(allLines[headerLineIndex]);
     if (headers.length === 0) {
       return { error: "CSV has no headers" };
     }
 
-    // Parse rows
+    // Parse rows starting after the header line
     const rows: string[][] = [];
-    for (let i = 1; i < lines.length; i++) {
-      const row = this.parseCSVLine(lines[i]);
+    for (let i = headerLineIndex + 1; i < allLines.length; i++) {
+      const line = allLines[i].trim();
+      if (line.length === 0) continue; // Skip empty lines
+
+      const row = this.parseCSVLine(allLines[i]);
       if (row.length > 0) {
         rows.push(row);
       }

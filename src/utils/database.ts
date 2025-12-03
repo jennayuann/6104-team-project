@@ -23,6 +23,7 @@ const DEFAULT_DB_NAME = "FrontEnd";
 async function init() {
   const client = await initMongoClient();
   const DB_NAME = Deno.env.get("DB_NAME") ?? DEFAULT_DB_NAME;
+  console.log(`[Database] Using database name: "${DB_NAME}" (from ${Deno.env.get("DB_NAME") ? "DB_NAME env var" : `default: "${DEFAULT_DB_NAME}"`})`);
   return [client, DB_NAME] as [MongoClient, string];
 }
 

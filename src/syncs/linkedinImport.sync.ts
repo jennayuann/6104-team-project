@@ -8,7 +8,7 @@ import { ID } from "@utils/types.ts";
 
 /**
  * Sync: When a LinkedIn connection is added, add it to the MultiSourceNetwork
- * 
+ *
  * This sync ensures that imported LinkedIn connections are automatically
  * added as nodes in the user's network graph with source "linkedin".
  */
@@ -23,12 +23,22 @@ export const AddLinkedInConnectionToNetwork: Sync = ({
     { connection },
   ]),
   where: async (frames) => {
+    // Extract actual values from frames for logging
+    const accountValue = frames[0]?.[account];
+    const connectionValue = frames[0]?.[connection];
+    console.log(`[Sync] AddLinkedInConnectionToNetwork: Processing connection ${String(connectionValue)} for account ${String(accountValue)}`);
     // Query to get the user (owner) from the LinkedIn account
     frames = await frames.query(
       LinkedInImport._getAccountUser,
       { account },
       { user },
     );
+    if (frames.length === 0) {
+      console.warn(`[Sync] AddLinkedInConnectionToNetwork: No user found for account ${String(accountValue)}, sync will not execute`);
+    } else {
+      const userValue = frames[0]?.[user];
+      console.log(`[Sync] AddLinkedInConnectionToNetwork: Found user ${String(userValue)} for account ${String(accountValue)}`);
+    }
     return frames;
   },
   then: actions([
@@ -40,4 +50,3 @@ export const AddLinkedInConnectionToNetwork: Sync = ({
     },
   ]),
 });
-
