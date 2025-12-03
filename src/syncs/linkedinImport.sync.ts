@@ -8,7 +8,7 @@ import { ID } from "@utils/types.ts";
 
 /**
  * Sync: When a LinkedIn connection is added, add it to the MultiSourceNetwork
- * 
+ *
  * This sync ensures that imported LinkedIn connections are automatically
  * added as nodes in the user's network graph with source "linkedin".
  */
@@ -48,8 +48,10 @@ export const AddLinkedInConnectionToNetwork: Sync = ({
       source: "linkedin" as ID,
       // connectionDoc may be an array result from the query; pass through as nodeMeta
       nodeMeta: (connectionDoc as unknown) as Record<string, unknown>,
-      externalId: (connectionDoc && (connectionDoc as unknown as Record<string, unknown>[])[0]?.linkedInConnectionId) as string,
+      externalId:
+        (connectionDoc &&
+          (connectionDoc as unknown as Record<string, unknown>[])[0]
+            ?.linkedInConnectionId) as string,
     },
   ]),
 });
-

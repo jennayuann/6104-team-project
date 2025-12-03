@@ -194,13 +194,13 @@ export const LinkedInImportAPI = {
   getConnections: (payload: { account: string }) =>
     postConcept<LinkedInConnection[]>("LinkedInImport", "_getConnections", payload),
   importConnectionsFromCSV: (payload: { account: string; csvContent: string }) =>
-    postConcept<{ importJob: string; connectionsImported: number }>(
+    postConcept<{ importJob: string; connectionsImported: number; connections: LinkedInConnection[] }>(
       "LinkedInImport",
       "importConnectionsFromCSV",
       payload,
     ),
   importConnectionsFromJSON: (payload: { account: string; jsonContent: string }) =>
-    postConcept<{ importJob: string; connectionsImported: number }>(
+    postConcept<{ importJob: string; connectionsImported: number; connections: LinkedInConnection[] }>(
       "LinkedInImport",
       "importConnectionsFromJSON",
       payload,

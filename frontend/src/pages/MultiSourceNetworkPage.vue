@@ -162,8 +162,8 @@
             From Node (search)
             <input v-model.trim="removeEdgeForm.fromDisplay" @input="searchFromNodeForRemove" required placeholder="Type to search nodes or paste node id" />
             <input type="hidden" v-model="removeEdgeForm.fromId" />
-            <ul v-if="fromSearchResults.length" class="dropdown">
-              <li v-for="r in fromSearchResults" :key="r._id" @click.prevent="selectRemoveEdgeFrom(r)">
+            <ul v-if="fromSearchResultsRemove.length" class="dropdown">
+              <li v-for="r in fromSearchResultsRemove" :key="r._id" @click.prevent="selectRemoveEdgeFrom(r)">
                 {{ ((r.firstName || '') + ' ' + (r.lastName || '')).trim() || r.label || r._id }} — {{ r._id }}
               </li>
             </ul>
@@ -172,8 +172,8 @@
           To Node (search)
           <input v-model.trim="removeEdgeForm.toDisplay" @input="searchToNodeForRemove" required placeholder="Type to search nodes or paste node id" />
           <input type="hidden" v-model="removeEdgeForm.toId" />
-          <ul v-if="toSearchResults.length" class="dropdown">
-            <li v-for="r in toSearchResults" :key="r._id" @click.prevent="selectRemoveEdgeTo(r)">
+          <ul v-if="toSearchResultsRemove.length" class="dropdown">
+            <li v-for="r in toSearchResultsRemove" :key="r._id" @click.prevent="selectRemoveEdgeTo(r)">
               {{ ((r.firstName || '') + ' ' + (r.lastName || '')).trim() || r.label || r._id }} — {{ r._id }}
             </li>
           </ul>
@@ -297,6 +297,9 @@ const fromSearchQuery = ref("");
 const fromSearchResults = ref<Array<Record<string, any>>>([]);
 const toSearchQuery = ref("");
 const toSearchResults = ref<Array<Record<string, any>>>([]);
+// Separate search result lists for the remove-edge form so the add/remove inputs don't share UI state
+const fromSearchResultsRemove = ref<Array<Record<string, any>>>([]);
+const toSearchResultsRemove = ref<Array<Record<string, any>>>([]);
 const removeEdgeForm = reactive({
   fromId: "",
   fromDisplay: "",
@@ -575,14 +578,14 @@ async function searchFromNodeForRemove() {
   if (!auth.userId) return;
   const q = removeEdgeForm.fromDisplay ? removeEdgeForm.fromDisplay.trim() : "";
   if (q === "") {
-    fromSearchResults.value = [];
+    fromSearchResultsRemove.value = [];
     return;
   }
   try {
     const res = await MultiSourceNetworkAPI.searchNodes({ owner: auth.userId, query: q, limit: 8 });
-    fromSearchResults.value = (res.results as Array<Record<string, any>>) || [];
+    fromSearchResultsRemove.value = (res.results as Array<Record<string, any>>) || [];
   } catch (e) {
-    fromSearchResults.value = [];
+    fromSearchResultsRemove.value = [];
   }
 }
 
@@ -591,21 +594,21 @@ function selectRemoveEdgeFrom(r: Record<string, any>) {
   const name = ((r.firstName || "") + " " + (r.lastName || "")).trim() || r.label || id;
   removeEdgeForm.fromId = id;
   removeEdgeForm.fromDisplay = name;
-  fromSearchResults.value = [];
+  fromSearchResultsRemove.value = [];
 }
 
 async function searchToNodeForRemove() {
   if (!auth.userId) return;
   const q = removeEdgeForm.toDisplay ? removeEdgeForm.toDisplay.trim() : "";
   if (q === "") {
-    toSearchResults.value = [];
+    toSearchResultsRemove.value = [];
     return;
   }
   try {
     const res = await MultiSourceNetworkAPI.searchNodes({ owner: auth.userId, query: q, limit: 8 });
-    toSearchResults.value = (res.results as Array<Record<string, any>>) || [];
+    toSearchResultsRemove.value = (res.results as Array<Record<string, any>>) || [];
   } catch (e) {
-    toSearchResults.value = [];
+    toSearchResultsRemove.value = [];
   }
 }
 
@@ -614,7 +617,7 @@ function selectRemoveEdgeTo(r: Record<string, any>) {
   const name = ((r.firstName || "") + " " + (r.lastName || "")).trim() || r.label || id;
   removeEdgeForm.toId = id;
   removeEdgeForm.toDisplay = name;
-  toSearchResults.value = [];
+  toSearchResultsRemove.value = [];
 }
 
 async function handleAddEdge() {

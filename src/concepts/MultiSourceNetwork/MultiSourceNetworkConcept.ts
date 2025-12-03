@@ -313,7 +313,18 @@ export default class MultiSourceNetworkConcept {
     if (!membership) return { error: `Not authorized to update node ${node}` };
 
     const updateData: Record<string, unknown> = {
-      ...(meta || {}),
+      // Avoid copying immutable or internal fields (e.g. _id) into the update
+      // MongoDB will throw if we attempt to set _id in an update.
+      ...((() => {
+        if (!meta) return {};
+        // Copy all keys except _id
+        const filtered: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries(meta)) {
+          if (k === "_id") continue;
+          filtered[k] = v;
+        }
+        return filtered;
+      })()),
       updatedAt: new Date(),
     };
     await this.nodes.updateOne({ _id: node }, { $set: updateData });
@@ -385,6 +396,7 @@ export default class MultiSourceNetworkConcept {
     nodeMeta?: Partial<NodeDoc> | Record<string, unknown>;
     externalId?: string;
   }): Promise<{ node: ID }> {
+    console.log("add node to network");
     // Create (or find existing) canonical node scoped to owner
     // Prepare sourceIds: prefer provided nodeMeta.sourceIds, otherwise use externalId mapping
     const providedMeta = (nodeMeta || {}) as Partial<NodeDoc>;
@@ -499,6 +511,62 @@ export default class MultiSourceNetworkConcept {
       await this.memberships.updateOne({ _id: existing._id }, {
         $set: { [`sources.${source}`]: true },
       });
+    }
+
+    // Ensure the owner has a canonical node in the nodes collection.
+    // Some flows treat the `owner` id as a node id (for example the owner as root).
+    // If it doesn't exist, create a lightweight node for the owner so we can
+    // create an edge from the owner to the newly created canonical node.
+    const ownerNode = await this.nodes.findOne({ _id: owner });
+    if (!ownerNode) {
+      const now = new Date();
+      try {
+        await this.nodes.insertOne({
+          _id: owner,
+          createdAt: now,
+          updatedAt: now,
+          label: String(owner),
+        } as unknown as NodeDoc);
+      } catch (_e) {
+        // best-effort: ignore insert errors (concurrent create)
+      }
+      // Ensure membership exists for owner -> owner
+      const ownerMembership = await this.memberships.findOne({
+        owner,
+        node: owner,
+      });
+      if (!ownerMembership) {
+        await this.memberships.insertOne({
+          _id: freshID(),
+          owner,
+          node: owner,
+          sources: { ["self" as unknown as Source]: true },
+        });
+      }
+    }
+
+    // Create an edge from owner node -> canonical node representing the imported connection.
+    try {
+      await this.edges.updateOne(
+        { owner, from: owner, to: node, source },
+        {
+          $setOnInsert: {
+            _id: freshID(),
+            owner,
+            from: owner,
+            to: node,
+            source,
+          },
+          $set: { weight: undefined },
+        },
+        { upsert: true },
+      );
+      console.log(
+        "[MultiSourceNetwork] addOrMigrateNodeFromSource: created/updated edge from owner to node",
+        { owner, node, source },
+      );
+    } catch (_e) {
+      // best-effort logging; don't fail the main flow if edge creation fails
     }
 
     return { node };
