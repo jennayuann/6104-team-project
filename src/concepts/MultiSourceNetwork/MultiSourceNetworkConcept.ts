@@ -699,10 +699,7 @@ export default class MultiSourceNetworkConcept {
       return { error: "firstName and lastName are required to create a node" };
     }
 
-    // headline is mandatory per new requirement
-    if (!headline || headline.trim() === "") {
-      return { error: "headline is required to create a node" };
-    }
+    // headline is optional for programmatic creation (UI may enforce it)
 
     const displayLabel = label && label.trim() !== ""
       ? label.trim()
@@ -744,7 +741,7 @@ export default class MultiSourceNetworkConcept {
       label: displayLabel,
       firstName: fn,
       lastName: ln,
-      headline: headline!.trim(),
+      headline: headline?.trim(),
       profileUrl: profileUrl?.trim(),
       // prefer explicit avatarUrl, fall back to profilePictureUrl if present
       avatarUrl: (avatarUrl || profilePictureUrl)?.trim(),

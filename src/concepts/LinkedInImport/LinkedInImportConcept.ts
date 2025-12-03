@@ -368,7 +368,6 @@ export default class LinkedInImportConcept {
     }>;
     rawData?: Record<string, unknown>;
   }): Promise<{ connection: Connection } | { error: string }> {
-    console.log("add");
     if (!linkedInConnectionId || linkedInConnectionId.trim() === "") {
       return { error: "linkedInConnectionId is required and cannot be empty" };
     }
@@ -822,7 +821,11 @@ Return ONLY a JSON object mapping CSV column names to ConnectionDoc field names.
     account: LinkedInAccount;
     csvContent: string;
   }): Promise<
-    | { importJob: ImportJob; connectionsImported: number; connections: ConnectionDoc[] }
+    | {
+      importJob: ImportJob;
+      connectionsImported: number;
+      connections: ConnectionDoc[];
+    }
     | { error: string }
   > {
     // Validate account exists
@@ -889,8 +892,8 @@ Return ONLY a JSON object mapping CSV column names to ConnectionDoc field names.
       console.log(`[LinkedInImport] Field mapping:`, fieldMapping);
 
       // Process each row
-  let connectionsImported = 0;
-  const createdConnectionIds: Connection[] = [];
+      let connectionsImported = 0;
+      const createdConnectionIds: Connection[] = [];
       const errors: string[] = [];
       console.log(`[LinkedInImport] Processing ${rows.length} rows...`);
 
@@ -1073,7 +1076,11 @@ Return ONLY a JSON object mapping CSV column names to ConnectionDoc field names.
           .toArray();
       }
 
-      return { importJob: importJobId, connectionsImported, connections: createdConnections };
+      return {
+        importJob: importJobId,
+        connectionsImported,
+        connections: createdConnections,
+      };
     } catch (e) {
       const err = e instanceof Error ? e : new Error(String(e));
       await this.importJobs.updateOne(
@@ -1114,7 +1121,11 @@ Return ONLY a JSON object mapping CSV column names to ConnectionDoc field names.
     account: LinkedInAccount;
     jsonContent: string;
   }): Promise<
-    | { importJob: ImportJob; connectionsImported: number; connections: ConnectionDoc[] }
+    | {
+      importJob: ImportJob;
+      connectionsImported: number;
+      connections: ConnectionDoc[];
+    }
     | { error: string }
   > {
     // Validate account exists
@@ -1206,8 +1217,8 @@ Return ONLY a JSON object mapping CSV column names to ConnectionDoc field names.
       const fieldMapping = mappingResult;
 
       // Process each connection object
-  let connectionsImported = 0;
-  const createdConnectionIds: Connection[] = [];
+      let connectionsImported = 0;
+      const createdConnectionIds: Connection[] = [];
       const errors: string[] = [];
 
       for (let objIndex = 0; objIndex < connectionsArray.length; objIndex++) {
@@ -1395,7 +1406,11 @@ Return ONLY a JSON object mapping CSV column names to ConnectionDoc field names.
           .toArray();
       }
 
-      return { importJob: importJobId, connectionsImported, connections: createdConnections };
+      return {
+        importJob: importJobId,
+        connectionsImported,
+        connections: createdConnections,
+      };
     } catch (e) {
       const err = e instanceof Error ? e : new Error(String(e));
       await this.importJobs.updateOne(
