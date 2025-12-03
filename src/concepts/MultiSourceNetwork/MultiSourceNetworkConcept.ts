@@ -396,7 +396,6 @@ export default class MultiSourceNetworkConcept {
     nodeMeta?: Partial<NodeDoc> | Record<string, unknown>;
     externalId?: string;
   }): Promise<{ node: ID }> {
-    console.log("add node to network");
     // Create (or find existing) canonical node scoped to owner
     // Prepare sourceIds: prefer provided nodeMeta.sourceIds, otherwise use externalId mapping
     const providedMeta = (nodeMeta || {}) as Partial<NodeDoc>;
@@ -824,11 +823,13 @@ export default class MultiSourceNetworkConcept {
       };
     }
 
+    // Upsert by owner/from/to so that an edge between two nodes is unique per owner.
+    // When an edge is re-added from a different source, overwrite the source and weight.
     await this.edges.updateOne(
-      { owner, from, to, source },
+      { owner, from, to },
       {
-        $setOnInsert: { _id: freshID(), owner, from, to, source },
-        $set: { weight },
+        $setOnInsert: { _id: freshID(), owner, from, to },
+        $set: { source, weight },
       },
       { upsert: true },
     );

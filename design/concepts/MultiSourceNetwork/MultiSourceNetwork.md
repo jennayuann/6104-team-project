@@ -108,7 +108,7 @@
         * **effects**: creates `{ node }` with the canonical node id.
 
 * **notes**:
-    * Use unique indexes and upserts for `Memberships` (`{ owner:1, node:1 }`) and `Edges` (`{ owner:1, from:1, to:1, source:1 }`) to avoid duplication under concurrency.
+    * Use unique indexes and upserts for `Memberships` (`{ owner:1, node:1 }`) and `Edges` (`{ owner:1, from:1, to:1 }`) to avoid duplication under concurrency. Edges are unique per owner/from/to; the `source` field represents the latest source that provided or updated the edge.
     * Prefer exact dedupe using `sourceIds` rather than name-only matching.
     * When a membership is removed because no sources remain, cascade-delete owner edges for that node so the owner’s unified graph reflects source deletions.
     * `updateNode` must perform membership-based authorization: only an owner that is a member of a node may update it. Implementations should also filter out immutable fields (for example `_id`) and avoid attempting to set those values in MongoDB updates. `updateNode` should update `updatedAt`.

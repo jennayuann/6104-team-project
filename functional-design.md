@@ -279,10 +279,10 @@ Social media apps for networking don’t help with the problem of finding who I 
         * **effects**: creates `{ node }` with the canonical node id.
 
 * **notes**:
-    * Use unique indexes and upserts for `Memberships` (`{ owner:1, node:1 }`) and `Edges` (`{ owner:1, from:1, to:1, source:1 }`) to avoid duplication under concurrency.
-    * Prefer exact dedupe using `sourceIds` rather than name-only matching.
-    * When a membership is removed because no sources remain, cascade-delete owner edges for that node so the owner’s unified graph reflects source deletions.
-    * `updateNode` must perform membership-based authorization: only an owner that is a member of a node may update it. Implementations should also filter out immutable fields (for example `_id`) and avoid attempting to set those values in MongoDB updates. `updateNode` should update `updatedAt`.
+    * The concept is multi-source because each node or edge may be contributed by one or more independent sources (e.g., multiple platforms).
+    * This supports combining, removing, and updating source-specific network data without affecting other sources.
+    * `Networks` represents the owner’s unified network workspace and stores per-owner configuration such as the chosen `root` node.
+    * `Memberships` records which nodes appear in the owner’s unified network and tracks which sources contributed each node.
     * `searchNodes` is scoped to nodes that the owner has a membership for and (by implementation) only performs substring searches on `firstName` and `lastName` (case-insensitive). The UI should rely on the membership filter to control visibility.
     * Edge creation from imports is best-effort: the flow ensures membership exists and upserts the owner->node edge, but a failure to create the edge should not fail the overall import/sync operation.
 
