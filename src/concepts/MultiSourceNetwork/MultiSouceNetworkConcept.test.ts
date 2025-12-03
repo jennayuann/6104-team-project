@@ -522,3 +522,49 @@ Deno.test("E2E: create nodes via createNodeForUser, search by name, then create 
     await client.close();
   }
 });
+
+Deno.test("Feature: addEdge updates existing owner/from/to edge instead of creating duplicate", async () => {
+  const [db, client] = await testDb();
+  const network = new MultiSourceNetworkConcept(db);
+
+  const owner = "owner:UpdaterTest" as ID;
+  try {
+    await network.createNetwork({ owner });
+
+    // create two nodes
+    const r1 = await network.createNodeForUser({
+      owner,
+      firstName: "Edge",
+      lastName: "SourceA",
+      label: "Edge SourceA",
+    });
+    if (r1.error) throw new Error(r1.error);
+    const from = r1.node as ID;
+
+    const r2 = await network.createNodeForUser({
+      owner,
+      firstName: "Edge",
+      lastName: "SourceB",
+      label: "Edge SourceB",
+    });
+    if (r2.error) throw new Error(r2.error);
+    const to = r2.node as ID;
+
+    // Add initial edge with source1 and weight 1
+    await network.addEdge({ owner, from, to, source: source1, weight: 1 });
+
+    // Add a second edge for the same from->to but different source and weight
+    await network.addEdge({ owner, from, to, source: source2, weight: 9 });
+
+    // Verify only one edge exists for this owner and from->to, and that it was updated
+    const edges = await network.edges.find({ owner }).toArray();
+    // There should be exactly one edge for this owner
+    const matching = edges.filter((e) => e.from === from && e.to === to);
+    assertEquals(matching.length, 1, "There should be exactly one edge for from->to");
+    const edge = matching[0];
+    assertEquals(edge.source, source2, "Edge source should be updated to the later source");
+    assertEquals(edge.weight, 9, "Edge weight should be updated to the later weight");
+  } finally {
+    await client.close();
+  }
+});

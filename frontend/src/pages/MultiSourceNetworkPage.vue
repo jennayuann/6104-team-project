@@ -52,16 +52,36 @@
       />
       <form class="form-grid" @submit.prevent="handleAddNode">
         <label>
-          Node (Username or User ID)
-          <input v-model.trim="nodeForm.node" required placeholder="Enter username or user ID" />
+          First Name
+          <input v-model.trim="createNodeForm.firstName" placeholder="First name" />
         </label>
         <label>
-          Source Tag
-          <input
-            v-model.trim="nodeForm.source"
-            required
-            placeholder="linkedin, csv-import, manual, …"
-          />
+          Last Name
+          <input v-model.trim="createNodeForm.lastName" placeholder="Last name" />
+        </label>
+        <label>
+          Label (display name)
+          <input v-model.trim="createNodeForm.label" placeholder="Full name or display label" />
+        </label>
+        <label>
+          Headline
+          <input v-model.trim="createNodeForm.headline" placeholder="Professional headline" />
+        </label>
+        <label>
+          Profile URL
+          <input v-model.trim="createNodeForm.profileUrl" placeholder="https://www.linkedin.com/in/…" />
+        </label>
+        <label>
+          Avatar URL
+          <input v-model.trim="createNodeForm.avatarUrl" placeholder="https://…/avatar.jpg" />
+        </label>
+        <label>
+          Tags (comma-separated)
+          <input v-model.trim="createNodeForm.tagsInput" placeholder="tag1, tag2" />
+        </label>
+        <label>
+          Source Tag (optional)
+          <input v-model.trim="createNodeForm.source" placeholder="linkedin, csv-import, manual, …" />
         </label>
         <button type="submit">Add / Merge Node</button>
       </form>
@@ -71,9 +91,19 @@
         style="margin-top: 1rem"
         @submit.prevent="handleRemoveNode"
       >
+        <label style="position: relative;">
+          Search Node to Remove
+          <input v-model.trim="removeNodeSearchQuery" @input="searchRemoveNode" placeholder="Type a name to search membership" />
+          <ul v-if="removeNodeSearchResults.length" class="dropdown">
+            <li v-for="r in removeNodeSearchResults" :key="r._id" @click.prevent="selectRemoveNode(r)">
+              {{ ((r.firstName || '') + ' ' + (r.lastName || '')).trim() || r.label || r._id }}
+            </li>
+          </ul>
+        </label>
         <label>
-          Node (Username or User ID)
-          <input v-model.trim="removeNodeForm.node" required placeholder="Enter username or user ID" />
+          Selected Node
+          <input v-model.trim="removeNodeForm.nodeDisplay" required placeholder="Selected node (name)" />
+          <input type="hidden" v-model="removeNodeForm.nodeId" />
         </label>
         <label>
           Source (optional)
@@ -94,13 +124,23 @@
         :message="banner.message"
       />
       <form class="form-grid" @submit.prevent="handleAddEdge">
+            <label>
+              From Node (search)
+              <input v-model.trim="edgeForm.fromDisplay" @input="searchFromNode" required placeholder="Type to search nodes or paste node id" />
+              <ul v-if="fromSearchResults.length" class="dropdown">
+                <li v-for="r in fromSearchResults" :key="r._id" @click.prevent="selectFromNode(r)">
+                  {{ ((r.firstName || '') + ' ' + (r.lastName || '')).trim() || r.label || r._id }}
+                </li>
+              </ul>
+            </label>
         <label>
-          From Node (Username or User ID)
-          <input v-model.trim="edgeForm.from" required placeholder="Enter username or user ID" />
-        </label>
-        <label>
-          To Node (Username or User ID)
-          <input v-model.trim="edgeForm.to" required placeholder="Enter username or user ID" />
+          To Node (search)
+          <input v-model.trim="edgeForm.toDisplay" @input="searchToNode" required placeholder="Type to search nodes or paste node id" />
+          <ul v-if="toSearchResults.length" class="dropdown">
+            <li v-for="r in toSearchResults" :key="r._id" @click.prevent="selectToNode(r)">
+              {{ ((r.firstName || '') + ' ' + (r.lastName || '')).trim() || r.label || r._id }}
+            </li>
+          </ul>
         </label>
         <label>
           Source
@@ -118,13 +158,25 @@
         style="margin-top: 1rem"
         @submit.prevent="handleRemoveEdge"
       >
+          <label>
+            From Node (search)
+            <input v-model.trim="removeEdgeForm.fromDisplay" @input="searchFromNodeForRemove" required placeholder="Type to search nodes or paste node id" />
+            <input type="hidden" v-model="removeEdgeForm.fromId" />
+            <ul v-if="fromSearchResults.length" class="dropdown">
+              <li v-for="r in fromSearchResults" :key="r._id" @click.prevent="selectRemoveEdgeFrom(r)">
+                {{ ((r.firstName || '') + ' ' + (r.lastName || '')).trim() || r.label || r._id }} — {{ r._id }}
+              </li>
+            </ul>
+          </label>
         <label>
-          From Node (Username or User ID)
-          <input v-model.trim="removeEdgeForm.from" required placeholder="Enter username or user ID" />
-        </label>
-        <label>
-          To Node (Username or User ID)
-          <input v-model.trim="removeEdgeForm.to" required placeholder="Enter username or user ID" />
+          To Node (search)
+          <input v-model.trim="removeEdgeForm.toDisplay" @input="searchToNodeForRemove" required placeholder="Type to search nodes or paste node id" />
+          <input type="hidden" v-model="removeEdgeForm.toId" />
+          <ul v-if="toSearchResults.length" class="dropdown">
+            <li v-for="r in toSearchResults" :key="r._id" @click.prevent="selectRemoveEdgeTo(r)">
+              {{ ((r.firstName || '') + ' ' + (r.lastName || '')).trim() || r.label || r._id }} — {{ r._id }}
+            </li>
+          </ul>
         </label>
         <label>
           Source
@@ -225,13 +277,31 @@ import { useAvatarStore } from "@/stores/useAvatarStore";
 type BannerSection = "create" | "root" | "nodes" | "edges" | "explorer";
 
 const createForm = reactive({ root: "" });
+const createNodeForm = reactive({
+  firstName: "",
+  lastName: "",
+  label: "",
+  headline: "",
+  profileUrl: "",
+  avatarUrl: "",
+  tagsInput: "",
+  source: "",
+});
 const rootForm = reactive({ root: "" });
 const nodeForm = reactive({ node: "", source: "" });
-const removeNodeForm = reactive({ node: "", source: "" });
-const edgeForm = reactive({ from: "", to: "", source: "", weight: undefined as number | undefined });
+const removeNodeForm = reactive({ nodeId: "", nodeDisplay: "", source: "" });
+const removeNodeSearchQuery = ref("");
+const removeNodeSearchResults = ref<Array<Record<string, any>>>([]);
+const edgeForm = reactive({ fromId: "", fromDisplay: "", toId: "", toDisplay: "", source: "", weight: undefined as number | undefined });
+const fromSearchQuery = ref("");
+const fromSearchResults = ref<Array<Record<string, any>>>([]);
+const toSearchQuery = ref("");
+const toSearchResults = ref<Array<Record<string, any>>>([]);
 const removeEdgeForm = reactive({
-  from: "",
-  to: "",
+  fromId: "",
+  fromDisplay: "",
+  toId: "",
+  toDisplay: "",
   source: "",
 });
 const adjacency = ref<AdjacencyMap | null>(null);
@@ -245,6 +315,7 @@ const networkContainer = ref<HTMLElement | null>(null);
 const networkInstance = ref<Network | null>(null);
 const rootNodeId = ref<string | null>(null);
 const nodeProfiles = ref<Record<string, { profile?: PublicProfile; avatarUrl: string; username?: string }>>({});
+const nodeMetaMap = ref<Record<string, { firstName?: string; lastName?: string; label?: string }>>({});
 
 
 function showBanner(section: BannerSection, type: "success" | "error", message: string) {
@@ -344,27 +415,58 @@ async function handleSetRoot() {
 
 async function handleAddNode() {
   if (!auth.userId) return;
-  const resolvedNode = await resolveToUserId(nodeForm.node);
-  const payload = { owner: auth.userId, node: resolvedNode, source: nodeForm.source };
+  // Create canonical node using createNodeForUser fields
+  const tags = createNodeForm.tagsInput
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+
+  const createPayload: Record<string, unknown> = {
+    owner: auth.userId,
+    firstName: createNodeForm.firstName || undefined,
+    lastName: createNodeForm.lastName || undefined,
+    label: createNodeForm.label || undefined,
+    headline: createNodeForm.headline || undefined,
+    profileUrl: createNodeForm.profileUrl || undefined,
+    avatarUrl: createNodeForm.avatarUrl || undefined,
+  };
+  if (tags.length > 0) createPayload.tags = tags;
+
   try {
-    await MultiSourceNetworkAPI.addNodeToNetwork(payload);
-    logActivity("nodes", "addNodeToNetwork", payload, "success", "Node stored.");
+    const created = await MultiSourceNetworkAPI.createNodeForUser(createPayload as any);
+    if (created.error) throw new Error(String(created.error));
+    const nodeId = created.node as string;
+
+    // Optionally attach the provided source tag to the membership
+    if (createNodeForm.source && createNodeForm.source.trim() !== "") {
+      await MultiSourceNetworkAPI.addNodeToNetwork({ owner: auth.userId, node: nodeId, source: createNodeForm.source });
+    }
+
+    logActivity("nodes", "createNodeForUser", createPayload, "success", "Node created and merged.");
     // Clear form
-    nodeForm.node = "";
-    nodeForm.source = "";
+    createNodeForm.firstName = "";
+    createNodeForm.lastName = "";
+    createNodeForm.label = "";
+    createNodeForm.headline = "";
+    createNodeForm.profileUrl = "";
+    createNodeForm.avatarUrl = "";
+    createNodeForm.tagsInput = "";
+    createNodeForm.source = "";
+
     // Automatically refresh visualization
     await fetchAdjacency();
   } catch (error) {
-    logActivity("nodes", "addNodeToNetwork", payload, "error", formatError(error));
+    logActivity("nodes", "createNodeForUser", createPayload, "error", formatError(error));
   }
 }
 
 async function handleRemoveNode() {
   if (!auth.userId) return;
-  const resolvedNode = await resolveToUserId(removeNodeForm.node);
+  // Prefer selected nodeId; if user pasted a username/id manually, resolve it
+  const nodeIdentifier = removeNodeForm.nodeId || (removeNodeForm.nodeDisplay ? await resolveToUserId(removeNodeForm.nodeDisplay) : undefined);
   const payload = {
     owner: auth.userId,
-    node: resolvedNode,
+    node: nodeIdentifier,
     source: removeNodeForm.source || undefined,
   };
   try {
@@ -379,7 +481,8 @@ async function handleRemoveNode() {
         : "Node removed entirely.",
     );
     // Clear form
-    removeNodeForm.node = "";
+    removeNodeForm.nodeId = "";
+    removeNodeForm.nodeDisplay = "";
     removeNodeForm.source = "";
     // Automatically refresh visualization
     await fetchAdjacency();
@@ -394,10 +497,131 @@ async function handleRemoveNode() {
   }
 }
 
+async function searchRemoveNode() {
+  if (!auth.userId) return;
+  const q = removeNodeSearchQuery.value.trim();
+  if (q === "") {
+    removeNodeSearchResults.value = [];
+    return;
+  }
+  try {
+    const res = await MultiSourceNetworkAPI.searchNodes({ owner: auth.userId, query: q, limit: 10 });
+    removeNodeSearchResults.value = (res.results as Array<Record<string, any>>) || [];
+  } catch (e) {
+    console.warn("searchRemoveNode failed", e);
+    removeNodeSearchResults.value = [];
+  }
+}
+
+function selectRemoveNode(r: Record<string, any>) {
+  const id = String(r._id || r._id);
+  const name = ((r.firstName || "") + " " + (r.lastName || "")).trim() || r.label || id;
+  removeNodeForm.nodeId = id;
+  removeNodeForm.nodeDisplay = name;
+  removeNodeSearchQuery.value = "";
+  removeNodeSearchResults.value = [];
+}
+
+async function searchFromNode() {
+  if (!auth.userId) return;
+  const q = edgeForm.fromDisplay.trim();
+  if (q === "") {
+    fromSearchResults.value = [];
+    return;
+  }
+  try {
+    const res = await MultiSourceNetworkAPI.searchNodes({ owner: auth.userId, query: q, limit: 8 });
+    fromSearchResults.value = (res.results as Array<Record<string, any>>) || [];
+  } catch (e) {
+    console.warn("searchFromNode failed", e);
+    fromSearchResults.value = [];
+  }
+}
+
+function selectFromNode(r: Record<string, any>) {
+  const id = String(r._id || r._id);
+  const name = ((r.firstName || "") + " " + (r.lastName || "")).trim() || r.label || id;
+  edgeForm.fromId = id;
+  edgeForm.fromDisplay = name;
+  fromSearchResults.value = [];
+}
+
+async function searchToNode() {
+  if (!auth.userId) return;
+  const q = edgeForm.toDisplay.trim();
+  if (q === "") {
+    toSearchResults.value = [];
+    return;
+  }
+  try {
+    const res = await MultiSourceNetworkAPI.searchNodes({ owner: auth.userId, query: q, limit: 8 });
+    toSearchResults.value = (res.results as Array<Record<string, any>>) || [];
+  } catch (e) {
+    console.warn("searchToNode failed", e);
+    toSearchResults.value = [];
+  }
+}
+
+function selectToNode(r: Record<string, any>) {
+  const id = String(r._id || r._id);
+  const name = ((r.firstName || "") + " " + (r.lastName || "")).trim() || r.label || id;
+  edgeForm.toId = id;
+  edgeForm.toDisplay = name;
+  toSearchResults.value = [];
+}
+
+// Reuse the same search lists for remove-edge inputs (they'll update based on the typed text in removeEdgeForm)
+async function searchFromNodeForRemove() {
+  if (!auth.userId) return;
+  const q = removeEdgeForm.fromDisplay ? removeEdgeForm.fromDisplay.trim() : "";
+  if (q === "") {
+    fromSearchResults.value = [];
+    return;
+  }
+  try {
+    const res = await MultiSourceNetworkAPI.searchNodes({ owner: auth.userId, query: q, limit: 8 });
+    fromSearchResults.value = (res.results as Array<Record<string, any>>) || [];
+  } catch (e) {
+    fromSearchResults.value = [];
+  }
+}
+
+function selectRemoveEdgeFrom(r: Record<string, any>) {
+  const id = String(r._id || r._id);
+  const name = ((r.firstName || "") + " " + (r.lastName || "")).trim() || r.label || id;
+  removeEdgeForm.fromId = id;
+  removeEdgeForm.fromDisplay = name;
+  fromSearchResults.value = [];
+}
+
+async function searchToNodeForRemove() {
+  if (!auth.userId) return;
+  const q = removeEdgeForm.toDisplay ? removeEdgeForm.toDisplay.trim() : "";
+  if (q === "") {
+    toSearchResults.value = [];
+    return;
+  }
+  try {
+    const res = await MultiSourceNetworkAPI.searchNodes({ owner: auth.userId, query: q, limit: 8 });
+    toSearchResults.value = (res.results as Array<Record<string, any>>) || [];
+  } catch (e) {
+    toSearchResults.value = [];
+  }
+}
+
+function selectRemoveEdgeTo(r: Record<string, any>) {
+  const id = String(r._id || r._id);
+  const name = ((r.firstName || "") + " " + (r.lastName || "")).trim() || r.label || id;
+  removeEdgeForm.toId = id;
+  removeEdgeForm.toDisplay = name;
+  toSearchResults.value = [];
+}
+
 async function handleAddEdge() {
   if (!auth.userId) return;
-  const resolvedFrom = await resolveToUserId(edgeForm.from);
-  const resolvedTo = await resolveToUserId(edgeForm.to);
+  // Prefer selected IDs from the dropdown; if absent, try resolving the display text (username/id)
+  const resolvedFrom = edgeForm.fromId || (edgeForm.fromDisplay ? await resolveToUserId(edgeForm.fromDisplay) : undefined);
+  const resolvedTo = edgeForm.toId || (edgeForm.toDisplay ? await resolveToUserId(edgeForm.toDisplay) : undefined);
   const payload = {
     owner: auth.userId,
     from: resolvedFrom,
@@ -409,8 +633,10 @@ async function handleAddEdge() {
     await MultiSourceNetworkAPI.addEdge(payload);
     logActivity("edges", "addEdge", payload, "success", "Edge saved.");
     // Clear form
-    edgeForm.from = "";
-    edgeForm.to = "";
+    edgeForm.fromId = "";
+    edgeForm.fromDisplay = "";
+    edgeForm.toId = "";
+    edgeForm.toDisplay = "";
     edgeForm.source = "";
     edgeForm.weight = undefined;
     // Automatically refresh visualization
@@ -422,20 +648,22 @@ async function handleAddEdge() {
 
 async function handleRemoveEdge() {
   if (!auth.userId) return;
-  const resolvedFrom = await resolveToUserId(removeEdgeForm.from);
-  const resolvedTo = await resolveToUserId(removeEdgeForm.to);
+  const resolvedFrom = removeEdgeForm.fromId || (removeEdgeForm.fromDisplay ? await resolveToUserId(removeEdgeForm.fromDisplay) : undefined);
+  const resolvedTo = removeEdgeForm.toId || (removeEdgeForm.toDisplay ? await resolveToUserId(removeEdgeForm.toDisplay) : undefined);
   const payload = {
     owner: auth.userId,
     from: resolvedFrom,
     to: resolvedTo,
-    source: removeEdgeForm.source
+    source: removeEdgeForm.source,
   };
   try {
     await MultiSourceNetworkAPI.removeEdge(payload);
     logActivity("edges", "removeEdge", payload, "success", "Edge removed.");
     // Clear form
-    removeEdgeForm.from = "";
-    removeEdgeForm.to = "";
+    removeEdgeForm.fromId = "";
+    removeEdgeForm.fromDisplay = "";
+    removeEdgeForm.toId = "";
+    removeEdgeForm.toDisplay = "";
     removeEdgeForm.source = "";
     // Automatically refresh visualization
     await fetchAdjacency();
@@ -472,6 +700,25 @@ async function fetchAdjacency() {
 
     // Fetch profile data for all nodes
     await fetchNodeProfiles(Array.from(allNodeIds));
+
+      // Attempt to load node metadata (firstName/lastName/label) via searchNodes so we can
+      // display human-friendly names in the graph. This is a best-effort call and will
+      // silently fail if not available.
+      try {
+        const metaRes = await MultiSourceNetworkAPI.searchNodes({ owner: auth.userId, query: "", limit: 1000 });
+        const results = (metaRes.results as Array<Record<string, any>>) || [];
+        for (const r of results) {
+          if (r._id) {
+            nodeMetaMap.value[String(r._id)] = {
+              firstName: r.firstName,
+              lastName: r.lastName,
+              label: r.label,
+            };
+          }
+        }
+      } catch (err) {
+        // ignore metadata fetch errors
+      }
 
     logActivity(
       "explorer",
@@ -642,10 +889,12 @@ async function renderNetwork() {
       ? generateBrightColor(nodeId)
       : "#778da9";
 
-    // Use username for label (prefer username over headline)
-    const nodeLabel = nodeId === auth.userId
-      ? (auth.username || profileData.username || nodeId)
-      : (profileData.username || nodeId);
+    // Prefer canonical node metadata firstName+lastName if available (from searchNodes),
+    // then fall back to username/profile, then nodeId.
+    const meta = nodeMetaMap.value[nodeId] || {};
+    const nameFromMeta = ((meta.firstName || "") + " " + (meta.lastName || "")).trim();
+    const nodeLabel = nameFromMeta
+      || (nodeId === auth.userId ? (auth.username || profileData.username || nodeId) : (profileData.username || nodeId));
 
     const node: any = {
       id: nodeId,
@@ -701,8 +950,10 @@ async function renderNetwork() {
           username: edge.to,
         };
 
-        // Use username for label (prefer username over headline)
-        const nodeLabel = profileData.username || edge.to;
+  // Prefer canonical node metadata firstName+lastName if available, else username
+  const metaTarget = nodeMetaMap.value[edge.to] || {};
+  const nameFromMetaTarget = ((metaTarget.firstName || "") + " " + (metaTarget.lastName || "")).trim();
+  const nodeLabel = nameFromMetaTarget || profileData.username || edge.to;
 
         nodes.add({
           id: edge.to,
@@ -798,7 +1049,7 @@ function formatError(error: unknown) {
 // Watch for adjacency changes to update visualization
 watch(
   () => adjacency.value,
-  async (newAdjacency) => {
+  async (newAdjacency: AdjacencyMap | null) => {
     if (newAdjacency && Object.keys(newAdjacency).length > 0) {
       console.log("Adjacency data changed, triggering render");
       // Wait for DOM to update and container to be available
@@ -822,7 +1073,7 @@ onBeforeUnmount(() => {
 // Initialize root node from createForm if available
 watch(
   () => createForm.root,
-  (newRoot) => {
+  (newRoot: string) => {
     if (newRoot) {
       rootNodeId.value = newRoot;
     }
@@ -832,7 +1083,7 @@ watch(
 // Automatically load network visualization when user is authenticated
 watch(
   () => auth.userId,
-  async (userId) => {
+  async (userId: string | null) => {
     if (userId) {
       // Wait for next tick to ensure DOM is ready
       await nextTick();
@@ -852,3 +1103,44 @@ onMounted(async () => {
   }
 });
 </script>
+
+<style scoped>
+/* Search result dropdown styling: clickable items and scroll when long */
+.dropdown {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  z-index: 40;
+  background: #ffffff;
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 6px;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+  list-style: none;
+  margin: 6px 0 0 0;
+  padding: 6px 0;
+  max-height: 220px; /* when list gets long, allow scrolling */
+  overflow-y: auto;
+}
+
+.dropdown li {
+  padding: 8px 12px;
+  font-size: 0.95rem;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-radius: 4px;
+}
+
+.dropdown li:hover {
+  background: #f1f5f9;
+  cursor: pointer;
+}
+
+/* Make sure the parent label/container is positioned so absolute dropdown anchors correctly */
+label { position: relative; }
+
+/* Small visual cue for hidden id inputs */
+input[type="hidden"] { display: none; }
+</style>

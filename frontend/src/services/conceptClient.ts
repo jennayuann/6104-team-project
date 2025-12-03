@@ -54,6 +54,23 @@ export const MultiSourceNetworkAPI = {
     postConcept("MultiSourceNetwork", "setRootNode", payload),
   addNodeToNetwork: (payload: { owner: string; node: string; source: string }) =>
     postConcept("MultiSourceNetwork", "addNodeToNetwork", payload),
+  createNodeForUser: (payload: {
+    owner: string;
+    firstName?: string;
+    lastName?: string;
+    label?: string;
+    headline?: string;
+    profileUrl?: string;
+    avatarUrl?: string;
+    tags?: string[];
+    sourceIds?: Record<string, string>;
+  }) => postConcept<{ node: string }>("MultiSourceNetwork", "createNodeForUser", payload),
+  searchNodes: (payload: { owner: string; query?: string; limit?: number; offset?: number }) =>
+    postConcept<{ results: Array<Record<string, unknown>>; total: number }>(
+      "MultiSourceNetwork",
+      "searchNodes",
+      payload,
+    ),
   removeNodeFromNetwork: (payload: {
     owner: string;
     node: string;
@@ -187,3 +204,5 @@ export const SemanticSearchAPI = {
     payload,
   ),
 };
+
+// End of concept client
