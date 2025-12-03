@@ -1008,4 +1008,29 @@ export default class MultiSourceNetworkConcept {
     );
     return adjacency;
   }
+
+  /**
+   * getNodes ({ ids: string[] }) -> Array<NodeDoc>
+   * Returns canonical node documents for the requested ids. This is a lightweight
+   * helper used by frontends to fetch display metadata for nodes returned in adjacency maps.
+   */
+  async getNodes({ ids }: { ids: string[] }): Promise<NodeDoc[]> {
+    if (!ids || !Array.isArray(ids) || ids.length === 0) return [];
+    const docs = await this.nodes.find(
+      { _id: { $in: ids as unknown as ID[] } },
+      {
+        projection: {
+          _id: 1,
+          firstName: 1,
+          lastName: 1,
+          label: 1,
+          headline: 1,
+          avatarUrl: 1,
+          profileUrl: 1,
+          sourceIds: 1,
+        },
+      },
+    ).toArray();
+    return docs as NodeDoc[];
+  }
 }

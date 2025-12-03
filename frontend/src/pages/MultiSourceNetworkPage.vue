@@ -237,13 +237,15 @@
             :key="nodeId"
             class="list-item"
           >
-            <strong>{{ nodeId }}</strong>
+            <strong>
+              {{ ((nodeMetaMap[nodeId]?.firstName || '') + ' ' + (nodeMetaMap[nodeId]?.lastName || '')).trim() || nodeProfiles[nodeId]?.username || nodeId }}
+            </strong>
             <p class="muted">
               {{ adjacency[nodeId].length }} outbound connection(s)
             </p>
             <ul style="padding-left: 1.25rem; margin: 0">
               <li v-for="edge in adjacency[nodeId]" :key="edge.to + edge.source">
-                → {{ edge.to }} <span class="muted">({{ edge.source }})</span>
+                → {{ ((nodeMetaMap[edge.to]?.firstName || '') + ' ' + (nodeMetaMap[edge.to]?.lastName || '')).trim() || nodeProfiles[edge.to]?.username || edge.to }} <span class="muted">({{ edge.source }})</span>
                 <span v-if="edge.weight"> · weight {{ edge.weight }}</span>
               </li>
             </ul>

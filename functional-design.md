@@ -249,6 +249,11 @@ Social media apps for networking don’t help with the problem of finding who I 
         * **effects**:
             * Returns nodes that match query, limited to `limit` results, with offset `offset` (how many "pages").
 
+    * `getNodes ( ids: String[] ): Node[]`
+        * **requires**: `id` to exist as a node id
+        * **effects**:
+            * Returns array of node information based on ids provided.
+
     * `addEdge (owner: Owner, from: Node, to: Node, source: Source, weight: Number?): Empty`
         * **requires**:
             * `from != to`.
