@@ -1,5 +1,5 @@
-const DEFAULT_BASE_URL = "http://localhost:8000/api";
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || DEFAULT_BASE_URL)
+// Use environment variable for production, default to /api for local dev (Vite will proxy)
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '/api')
   .replace(/\/+$/, "");
 
 export class ConceptApiError extends Error {
@@ -47,6 +47,11 @@ export interface AdjacencyMap {
   [node: string]: Array<{ to: string; source: string; weight?: number }>;
 }
 
+export interface AdjacencyResponse {
+  adjacency: AdjacencyMap;
+  nodeLabels: Record<string, string | undefined>;
+}
+
 export const MultiSourceNetworkAPI = {
   createNetwork: (payload: { owner: string; root?: string }) =>
     postConcept<{ network: string }>("MultiSourceNetwork", "createNetwork", payload),
@@ -73,7 +78,7 @@ export const MultiSourceNetworkAPI = {
     source: string;
   }) => postConcept("MultiSourceNetwork", "removeEdge", payload),
   getAdjacencyArray: (payload: { owner: string }) =>
-    postConcept<AdjacencyMap>("MultiSourceNetwork", "_getAdjacencyArray", payload),
+    postConcept<AdjacencyResponse>("MultiSourceNetwork", "_getAdjacencyArray", payload),
 };
 
 export interface PublicProfile {
@@ -112,6 +117,12 @@ export const UserAuthenticationAPI = {
     postConcept<{ id: string; username: string } | Record<string, never>>(
       "UserAuthentication",
       "_getUserById",
+      payload,
+    ),
+  getUserByUsername: (payload: { username: string }) =>
+    postConcept<{ user: string }[]>(
+      "UserAuthentication",
+      "_getUserByUsername",
       payload,
     ),
 };
@@ -182,4 +193,36 @@ export const LinkedInImportAPI = {
       "importConnectionsFromJSON",
       payload,
     ),
+};
+
+export interface SemanticConnectionResult {
+  connectionId: string;
+  score: number;
+  text: string;
+  connection?: {
+    _id: string;
+    linkedInConnectionId?: string;
+    firstName?: string;
+    lastName?: string;
+    headline?: string | null;
+    location?: string | null;
+    industry?: string | null;
+    currentPosition?: string | null;
+    currentCompany?: string | null;
+    profileUrl?: string | null;
+    profilePictureUrl?: string | null;
+    summary?: string | null;
+  };
+}
+
+export const SemanticSearchAPI = {
+  searchConnections: (payload: {
+    owner: string;
+    queryText: string;
+    limit?: number;
+  }) => postConcept<{ results: SemanticConnectionResult[] }>(
+    "SemanticSearch",
+    "searchConnections",
+    payload,
+  ),
 };
