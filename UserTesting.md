@@ -1,0 +1,19 @@
+# Data Population Plan
+
+Populate the app with data from cole's linked in and give the user that information. Also provide them with a new set of linked in data to import and add so they can test that functionality. 
+
+# Task List
+| Task Title                            | User Instruction                                                                                          | Rationale                                                                                                                                                                                      |
+|----------------------------------------|----------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Log In                                | Log into your account using your provided credentials.                                                    | Tests the clarity and usability of the login process for real users, highlighting potential confusion or friction that might be overlooked by developers during walkthroughs.                  |
+| Update Profile Name & Photo            | Change your account display name and upload a profile photo.                                              | Validates the discoverability and ease of use of account settings/personalization, ensuring users can find how to change profile details without hints.                                        |
+| Manually Add a Network Node            | Add a new connection manually to your network by entering specific details.                               | Checks if users can find and complete the manual node addition workflow, surfacing interface pain points that may not be obvious when executing steps as a developer.                         |
+| Import LinkedIn Connections            | Import your additional LinkedIn connections from the provided CSV or JSON file.                           | Tests import workflow and UI clarity, ensuring that users can independently find and trigger the import process, and that file-handling instructions are understandable and error-tolerant.    |
+| Capture Network Screenshot             | Take a screenshot of your current network visualization.                                                  | Evaluates whether users can locate and use network visualization tools, and reveals if needed controls (like screenshot/export) are visible and usable in a real-user context.                |
+| Search for a Specific Person           | Use the search functionality to find a specific person in your network.                                   | Assesses the intuitiveness of search for direct queries and whether it matches user expectations for search results and interaction patterns.                                                  |
+| Search by Job Title                    | Search your network for people who are software engineers.                                                | Determines if the semantic search accommodates non-name-based queries, and if users naturally phrase and execute such searches, revealing gaps in UX or results relevance.                    |
+| Search by Company                      | Search your network for someone who works at Google.                                                      | Shows whether the system supports organization-based search, helping uncover edge cases in company/entity disambiguation and surfacing issues with search accuracy or usability.               |
+
+# Case Notes
+
+# Improvement Opportunities
