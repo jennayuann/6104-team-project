@@ -465,7 +465,30 @@ async function loadComparisons() {
     // Limit existing nodes to compare against (first 100 to avoid too many comparisons)
     const nodesToCompare = existingNodeIds.slice(0, 100);
     
-    // Step 1: Pre-filter using string similarity (fast, no LLM calls)
+    // Step 1: Batch fetch all node info upfront (much faster than fetching one by one)
+    loadingMessage.value = "Loading node information...";
+    const nodeInfoCache = new Map<string, Record<string, unknown>>();
+    
+    // Fetch node info in parallel batches
+    const BATCH_SIZE = 20;
+    for (let i = 0; i < nodesToCompare.length; i += BATCH_SIZE) {
+      const batch = nodesToCompare.slice(i, i + BATCH_SIZE);
+      const batchPromises = batch.map(async (nodeId) => {
+        try {
+          const info = await getNodeInfo(nodeId);
+          if (info) {
+            nodeInfoCache.set(nodeId, info);
+          }
+        } catch (e) {
+          // Skip nodes we can't get info for
+          console.log(`Could not get info for node ${nodeId}:`, e);
+        }
+      });
+      await Promise.all(batchPromises);
+      comparisonProgress.value = `Loaded info for ${Math.min(i + BATCH_SIZE, nodesToCompare.length)} of ${nodesToCompare.length} nodes...`;
+    }
+
+    // Step 2: Pre-filter using string similarity (fast, local computation only)
     loadingMessage.value = "Pre-filtering using string similarity...";
     const candidatePairs: Array<{
       connection: typeof connections[0];
@@ -495,31 +518,8 @@ async function loadComparisons() {
         // Skip if comparing to itself
         if (connection._id === existingNodeId) continue;
 
-        // Check if comparison already exists
-        try {
-          const existing = await LLMDisambiguationAPI.getComparison({
-            node1: connection._id,
-            node2: existingNodeId,
-          });
-
-          if (existing.length > 0) {
-            const comp = existing[0];
-            // Include all pending comparisons (even without LLM analysis)
-            if (comp.userDecision === "pending" || !comp.userDecision) {
-              if (!existingComparisons.has(comp._id) && !newComparisons.find(c => c._id === comp._id)) {
-                newComparisons.push(comp);
-                comparisons.value = [...comparisons.value, comp];
-              }
-            }
-            continue;
-          }
-        } catch (e) {
-          console.error(`Error checking existing comparison:`, e);
-          continue;
-        }
-
-        // Get info for the existing node
-        const node2Info = await getNodeInfo(existingNodeId);
+        // Get cached node info
+        const node2Info = nodeInfoCache.get(existingNodeId);
         
         // Only proceed if we have info for both nodes
         if (node2Info) {
@@ -539,48 +539,61 @@ async function loadComparisons() {
     const totalCandidates = candidatePairs.length;
     loadingMessage.value = `Found ${totalCandidates} candidate pairs with string similarity. Creating comparisons...`;
 
-    // Step 2: Create comparisons immediately (no LLM calls - those happen on-demand)
-    for (const pair of candidatePairs) {
-      try {
-        completedCount++;
-        comparisonProgress.value = `Creating comparison ${completedCount} of ${totalCandidates}...`;
+    // Step 3: Create comparisons in parallel batches (no LLM calls - those happen on-demand)
+    const COMPARISON_BATCH_SIZE = 10;
+    for (let i = 0; i < candidatePairs.length; i += COMPARISON_BATCH_SIZE) {
+      const batch = candidatePairs.slice(i, i + COMPARISON_BATCH_SIZE);
+      
+      const batchPromises = batch.map(async (pair) => {
+        try {
+          const result = await LLMDisambiguationAPI.compareNodes({
+            node1: pair.connection._id,
+            node2: pair.existingNodeId,
+            node1Info: pair.connectionInfo,
+            node2Info: pair.node2Info,
+          });
 
-        const result = await LLMDisambiguationAPI.compareNodes({
-          node1: pair.connection._id,
-          node2: pair.existingNodeId,
-          node1Info: pair.connectionInfo,
-          node2Info: pair.node2Info,
-        });
-
-        // Skip if no string similarity (concept returns error)
-        if ("error" in result) {
-          if (result.error.includes("No string similarity")) {
-            // This is expected - skip silently
-            continue;
+          // Skip if no string similarity (concept returns error)
+          if ("error" in result) {
+            if (result.error.includes("No string similarity")) {
+              // This is expected - skip silently
+              return null;
+            }
+            // Other errors should be logged
+            console.error(`Error comparing nodes:`, result.error);
+            return null;
           }
-          // Other errors should be logged
-          console.error(`Error comparing nodes:`, result.error);
-          continue;
-        }
 
-        // Get the comparison details
-        const [compDetails] = await LLMDisambiguationAPI.getComparisonDetails({
-          comparison: result.comparison,
-        });
+          // Get the comparison details
+          const [compDetails] = await LLMDisambiguationAPI.getComparisonDetails({
+            comparison: result.comparison,
+          });
 
-        if (compDetails) {
-          // Add all comparisons (even without LLM analysis yet)
-          // They'll be analyzed on-demand when user views them
-          newComparisons.push(compDetails);
-          // Update UI incrementally
-          comparisons.value = [...comparisons.value, compDetails];
+          return compDetails;
+        } catch (e) {
+          console.error(
+            `Error comparing ${pair.connection._id} to ${pair.existingNodeId}:`,
+            e
+          );
+          return null;
         }
-      } catch (e) {
-        console.error(
-          `Error comparing ${pair.connection._id} to ${pair.existingNodeId}:`,
-          e
-        );
+      });
+
+      const batchResults = await Promise.all(batchPromises);
+      const validComparisons = batchResults.filter((comp): comp is Comparison => comp !== null);
+      
+      // Add valid comparisons
+      for (const comp of validComparisons) {
+        if (!newComparisons.find(c => c._id === comp._id)) {
+          newComparisons.push(comp);
+        }
       }
+      
+      completedCount += batch.length;
+      comparisonProgress.value = `Created ${completedCount} of ${totalCandidates} comparisons...`;
+      
+      // Update UI incrementally
+      comparisons.value = [...comparisons.value, ...validComparisons];
     }
 
     // Merge with existing comparisons (already added incrementally above)

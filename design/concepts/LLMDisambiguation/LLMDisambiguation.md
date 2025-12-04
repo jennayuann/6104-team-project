@@ -1,6 +1,6 @@
 * **concept**: LLMDisambiguation [Node]
 * **purpose**: Determine whether two nodes in a network represent the same real-world entity by comparing their associated information, enabling the system to detect duplicates and maintain accurate network representations.
-* **principle**: When two nodes are compared, the system uses an LLM to analyze their associated information (names, locations, affiliations, etc.) and generates a similarity assessment. The user can then confirm or reject the assessment, and if confirmed, the nodes can be marked as representing the same entity, allowing downstream concepts to merge or link them appropriately.
+* **principle**: When two nodes are compared, the system first performs fast pre-filtering using string similarity checks (names, companies, locations). If nodes pass the pre-filter, a comparison is created immediately without LLM analysis. LLM analysis is then performed on-demand when requested, generating a similarity assessment. For nodes with matching LinkedIn profile URLs, the system automatically marks them as high-confidence matches. The user can then confirm or reject the assessment, and if confirmed, the nodes can be marked as representing the same entity, allowing downstream concepts to merge or link them appropriately.
 
 * **state**:
     * a set of `Comparisons` with
@@ -26,13 +26,26 @@
     * `compareNodes (node1: Node, node2: Node, node1Info: JSON?, node2Info: JSON?): (comparison: Comparison)`
         * **requires**:
             * `node1 != node2`.
+            * If `node1Info` and `node2Info` are provided, they must pass string similarity pre-filtering (names, companies, locations must have some overlap).
         * **effects**:
             * If a `Comparisons` entry exists for `(node1, node2)` or `(node2, node1)`, updates it; otherwise creates a new entry.
-            * Uses LLM to analyze `node1Info` and `node2Info` (or fetches information if not provided).
-            * Generates or updates `llmSimilarityScore`, `llmReasoning`, and `llmConfidence`.
-            * Sets `userDecision` to "pending" (if updating an existing comparison with a decision, resets to "pending").
+            * If both nodes have matching LinkedIn profile URLs (after normalization), automatically sets `llmSimilarityScore` to 1.0, `llmConfidence` to "high", and `llmReasoning` to indicate URL match.
+            * Otherwise, creates a comparison entry with `llmSimilarityScore`, `llmReasoning`, and `llmConfidence` left undefined (LLM analysis is deferred to `analyzeComparison` action).
+            * If no string similarity is detected and no existing comparison exists, returns an error instead of creating a comparison.
+            * Sets `userDecision` to "pending" (if updating an existing comparison with a decision, resets to "pending" only if it was already decided).
             * Updates `node1Info` and `node2Info` snapshots.
             * Returns the comparison ID.
+
+    * `analyzeComparison (comparison: Comparison): Empty`
+        * **requires**:
+            * A `Comparisons` entry with the given `comparison` ID exists.
+            * The comparison has `node1Info` and `node2Info` available.
+            * The comparison's `llmSimilarityScore` is undefined (not yet analyzed).
+        * **effects**:
+            * Uses LLM to analyze `node1Info` and `node2Info`.
+            * Updates `llmSimilarityScore`, `llmReasoning`, and `llmConfidence` with LLM results.
+            * Does not change `userDecision` if it's already set.
+            * If LLM analysis has already been performed, does nothing and returns successfully.
 
     * `confirmComparison (comparison: Comparison, userDecision: String): Empty`
         * **requires**:
@@ -85,7 +98,11 @@
 * **notes**:
     * This concept is designed to work with any concept that manages nodes (such as MultiSourceNetwork). The `Node` type parameter is completely generic and polymorphic.
     * The concept does not perform the actual merging of nodes in other concepts; it only records that a merge should occur. Synchronizations with other concepts (like MultiSourceNetwork) should handle the actual node merging based on `Merges` entries.
-    * The `node1Info` and `node2Info` parameters allow callers to provide structured information about nodes (e.g., names, locations, affiliations, etc.) for LLM analysis. If not provided, the concept may need to query other concepts via synchronizations to gather this information.
+    * The `node1Info` and `node2Info` parameters allow callers to provide structured information about nodes (e.g., names, locations, affiliations, profile URLs, etc.) for analysis. These are required for both pre-filtering and LLM analysis.
+    * **Pre-filtering**: Before creating a comparison, the concept performs fast string similarity checks on names, companies, and locations. Only nodes with sufficient string similarity proceed to comparison creation. This avoids creating comparisons for obviously different nodes.
+    * **LinkedIn URL matching**: If both nodes have LinkedIn profile URLs that match (after normalization to handle URL variations), the comparison is automatically marked as high confidence (similarity 1.0) without requiring LLM analysis.
+    * **On-demand LLM analysis**: The `compareNodes` action creates comparisons immediately without LLM analysis for performance. LLM analysis is performed on-demand via the `analyzeComparison` action when the user requests it. This allows the system to quickly identify candidate pairs while deferring expensive LLM calls until needed.
     * The LLM comparison uses semantic understanding to handle variations in names, abbreviations, and formatting that might indicate the same person.
     * User confirmation is essential for accuracy, as LLM assessments may have false positives or false negatives.
     * The concept maintains snapshots of node information at comparison time to ensure consistency even if node data changes later.
+    * High-confidence matches (similarity >= 0.85, confidence "high") are automatically confirmed and merged by synchronizations, while medium/low confidence matches require user review.
