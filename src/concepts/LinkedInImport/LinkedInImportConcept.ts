@@ -411,12 +411,15 @@ export default class LinkedInImportConcept {
     }>;
     rawData?: Record<string, unknown>;
   }): Promise<{ connection: Connection } | { error: string }> {
+    console.log(`[LinkedInImport] addConnection called: account=${account}, linkedInConnectionId=${linkedInConnectionId}, firstName=${firstName}, lastName=${lastName}`);
+
     if (!linkedInConnectionId || linkedInConnectionId.trim() === "") {
       return { error: "linkedInConnectionId is required and cannot be empty" };
     }
 
     const existingAccount = await this.accounts.findOne({ _id: account });
     if (!existingAccount) {
+      console.error(`[LinkedInImport] addConnection ERROR: Account ${account} not found`);
       return { error: `LinkedIn account with ID ${account} not found.` };
     }
 
@@ -605,6 +608,30 @@ export default class LinkedInImportConcept {
   /**
    * Query: Retrieves a connection by LinkedIn connection ID.
    */
+  /**
+   * Query: Get a connection by its connection ID (not LinkedIn ID)
+   * _getConnection (connection: Connection): { connection: ConnectionDoc }[]
+   */
+  async _getConnection({
+    connection,
+  }: {
+    connection: Connection;
+  }): Promise<Array<{ connection: ConnectionDoc }>> {
+    console.log(`[LinkedInImport] _getConnection: Looking up connection ${String(connection)}`);
+    const connectionDoc = await this.connections.findOne({ _id: connection });
+    if (!connectionDoc) {
+      console.log(`[LinkedInImport] _getConnection: Connection ${String(connection)} not found in database`);
+      return [];
+    }
+    console.log(`[LinkedInImport] _getConnection: Found connection:`, {
+      _id: connectionDoc._id,
+      firstName: connectionDoc.firstName,
+      lastName: connectionDoc.lastName,
+      linkedInConnectionId: connectionDoc.linkedInConnectionId,
+    });
+    return [{ connection: connectionDoc }];
+  }
+
   async _getConnectionByLinkedInId({
     account,
     linkedInConnectionId,
@@ -615,6 +642,17 @@ export default class LinkedInImportConcept {
     return await this.connections
       .find({ account, linkedInConnectionId })
       .toArray();
+  }
+
+  /**
+   * Query: Retrieves a connection by internal connection ID.
+   */
+  async _getConnection({
+    connection,
+  }: {
+    connection: Connection;
+  }): Promise<ConnectionDoc[]> {
+    return await this.connections.find({ _id: connection }).toArray();
   }
 
   /**
@@ -811,25 +849,60 @@ Return ONLY a JSON object mapping CSV column names to ConnectionDoc field names.
 
   /**
    * Helper: Parses CSV content into rows with headers.
+   * Handles LinkedIn's CSV export format which may include a "Notes:" section at the beginning.
    */
   private parseCSV(
     csvContent: string,
   ): { headers: string[]; rows: string[][] } | { error: string } {
-    const lines = csvContent.split("\n").filter((line) => line.trim() !== "");
-    if (lines.length === 0) {
-      return { error: "CSV content is empty" };
+    const allLines = csvContent.split("\n");
+
+    // Find the actual CSV header row by looking for common LinkedIn CSV headers
+    // LinkedIn CSV exports start with "Notes:" followed by a note, then blank lines, then the header
+    let headerLineIndex = -1;
+    const linkedInHeaderKeywords = ["First Name", "Last Name", "URL", "Email", "Company", "Position"];
+
+    for (let i = 0; i < allLines.length; i++) {
+      const line = allLines[i].trim();
+      if (line.length === 0) continue;
+
+      // Check if this line looks like a CSV header (contains multiple LinkedIn keywords)
+      const parsed = this.parseCSVLine(line);
+      if (parsed.length > 0) {
+        const lineLower = line.toLowerCase();
+        const keywordMatches = linkedInHeaderKeywords.filter(keyword =>
+          lineLower.includes(keyword.toLowerCase())
+        ).length;
+
+        // If we find at least 2-3 keywords, this is likely the header row
+        if (keywordMatches >= 2) {
+          headerLineIndex = i;
+          break;
+        }
+      }
     }
 
-    // Parse headers
-    const headers = this.parseCSVLine(lines[0]);
+    if (headerLineIndex === -1) {
+      // Fallback: use first non-empty line as header
+      const nonEmptyLines = allLines.filter((line) => line.trim() !== "");
+      if (nonEmptyLines.length === 0) {
+        return { error: "CSV content is empty" };
+      }
+      headerLineIndex = allLines.indexOf(nonEmptyLines[0]);
+    }
+
+    // Parse headers from the found header line
+    const headers = this.parseCSVLine(allLines[headerLineIndex]);
     if (headers.length === 0) {
       return { error: "CSV has no headers" };
     }
 
-    // Parse rows
+    // Parse rows starting after the header line
     const rows: string[][] = [];
-    for (let i = 1; i < lines.length; i++) {
-      const row = this.parseCSVLine(lines[i]);
+    for (let i = headerLineIndex + 1; i < allLines.length; i++) {
+      const line = allLines[i].trim();
+      if (line.length === 0) continue; // Skip empty lines
+
+      const row = this.parseCSVLine(allLines[i]);
       if (row.length > 0) {
         rows.push(row);
       }
@@ -894,7 +967,11 @@ Return ONLY a JSON object mapping CSV column names to ConnectionDoc field names.
     account: LinkedInAccount;
     csvContent: string;
   }): Promise<
-    | { importJob: ImportJob; connectionsImported: number }
+    | {
+      importJob: ImportJob;
+      connectionsImported: number;
+      connections: ConnectionDoc[];
+    }
     | { error: string }
   > {
     // Validate account exists
@@ -962,6 +1039,7 @@ Return ONLY a JSON object mapping CSV column names to ConnectionDoc field names.
 
       // Process each row
       let connectionsImported = 0;
+      const createdConnectionIds: Connection[] = [];
       const errors: string[] = [];
       console.log(`[LinkedInImport] Processing ${rows.length} rows...`);
 
@@ -1081,7 +1159,14 @@ Return ONLY a JSON object mapping CSV column names to ConnectionDoc field names.
         }
 
         // Add connection
-        const addResult = await this.addConnection(connectionData);
+        // Use instrumented version if available (when called through proxy), otherwise use raw method
+        // This ensures syncs trigger when importConnectionsFromCSV is called through the instrumented proxy
+        const instrumented = (this as any).__instrumented;
+        const addConnectionMethod = instrumented?.addConnection || this.addConnection;
+        const addConnectionThis = instrumented || this;
+        console.log(`[LinkedInImport] Calling addConnection for row ${rowIndex + 1} (linkedInConnectionId: ${connectionData.linkedInConnectionId})...`);
+        const addResult = await addConnectionMethod.call(addConnectionThis, connectionData);
+        console.log(`[LinkedInImport] addConnection completed for row ${rowIndex + 1}:`, "error" in addResult ? `ERROR: ${addResult.error}` : `SUCCESS: connection=${addResult.connection}`);
         if ("error" in addResult) {
           const errorMsg = `Row ${rowIndex + 2}: ${addResult.error}`;
           errors.push(errorMsg);
@@ -1097,6 +1182,7 @@ Return ONLY a JSON object mapping CSV column names to ConnectionDoc field names.
           }
         } else {
           connectionsImported++;
+          createdConnectionIds.push(addResult.connection as Connection);
         }
       }
 
@@ -1135,7 +1221,19 @@ Return ONLY a JSON object mapping CSV column names to ConnectionDoc field names.
         );
       }
 
-      return { importJob: importJobId, connectionsImported };
+      // Fetch created connection documents to return to caller
+      let createdConnections: ConnectionDoc[] = [];
+      if (createdConnectionIds.length > 0) {
+        createdConnections = await this.connections
+          .find({ _id: { $in: createdConnectionIds } })
+          .toArray();
+      }
+
+      return {
+        importJob: importJobId,
+        connectionsImported,
+        connections: createdConnections,
+      };
     } catch (e) {
       const err = e instanceof Error ? e : new Error(String(e));
       await this.importJobs.updateOne(
@@ -1176,7 +1274,11 @@ Return ONLY a JSON object mapping CSV column names to ConnectionDoc field names.
     account: LinkedInAccount;
     jsonContent: string;
   }): Promise<
-    | { importJob: ImportJob; connectionsImported: number }
+    | {
+      importJob: ImportJob;
+      connectionsImported: number;
+      connections: ConnectionDoc[];
+    }
     | { error: string }
   > {
     // Validate account exists
@@ -1269,6 +1371,7 @@ Return ONLY a JSON object mapping CSV column names to ConnectionDoc field names.
 
       // Process each connection object
       let connectionsImported = 0;
+      const createdConnectionIds: Connection[] = [];
       const errors: string[] = [];
 
       for (let objIndex = 0; objIndex < connectionsArray.length; objIndex++) {
@@ -1416,11 +1519,19 @@ Return ONLY a JSON object mapping CSV column names to ConnectionDoc field names.
         }
 
         // Add connection
-        const addResult = await this.addConnection(connectionData);
+        // Use instrumented version if available (when called through proxy), otherwise use raw method
+        // This ensures syncs trigger when importConnectionsFromJSON is called through the instrumented proxy
+        const instrumented = (this as any).__instrumented;
+        const addConnectionMethod = instrumented?.addConnection || this.addConnection;
+        const addConnectionThis = instrumented || this;
+        console.log(`[LinkedInImport] Calling addConnection for JSON object ${objIndex + 1} (linkedInConnectionId: ${connectionData.linkedInConnectionId})...`);
+        const addResult = await addConnectionMethod.call(addConnectionThis, connectionData);
+        console.log(`[LinkedInImport] addConnection completed for JSON object ${objIndex + 1}:`, "error" in addResult ? `ERROR: ${addResult.error}` : `SUCCESS: connection=${addResult.connection}`);
         if ("error" in addResult) {
           errors.push(`Object ${objIndex + 1}: ${addResult.error}`);
         } else {
           connectionsImported++;
+          createdConnectionIds.push(addResult.connection as Connection);
         }
       }
 
@@ -1447,7 +1558,19 @@ Return ONLY a JSON object mapping CSV column names to ConnectionDoc field names.
         );
       }
 
-      return { importJob: importJobId, connectionsImported };
+      // Fetch created connection documents to return to caller
+      let createdConnections: ConnectionDoc[] = [];
+      if (createdConnectionIds.length > 0) {
+        createdConnections = await this.connections
+          .find({ _id: { $in: createdConnectionIds } })
+          .toArray();
+      }
+
+      return {
+        importJob: importJobId,
+        connectionsImported,
+        connections: createdConnections,
+      };
     } catch (e) {
       const err = e instanceof Error ? e : new Error(String(e));
       await this.importJobs.updateOne(

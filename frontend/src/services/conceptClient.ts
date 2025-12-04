@@ -47,6 +47,11 @@ export interface AdjacencyMap {
   [node: string]: Array<{ to: string; source: string; weight?: number }>;
 }
 
+export interface AdjacencyResponse {
+  adjacency: AdjacencyMap;
+  nodeLabels: Record<string, string | undefined>;
+}
+
 export const MultiSourceNetworkAPI = {
   createNetwork: (payload: { owner: string; root?: string }) =>
     postConcept<{ network: string }>(
@@ -59,6 +64,30 @@ export const MultiSourceNetworkAPI = {
   addNodeToNetwork: (
     payload: { owner: string; node: string; source: string },
   ) => postConcept("MultiSourceNetwork", "addNodeToNetwork", payload),
+  createNodeForUser: (payload: {
+    owner: string;
+    firstName?: string;
+    lastName?: string;
+    label?: string;
+    headline?: string;
+    profileUrl?: string;
+    avatarUrl?: string;
+    tags?: string[];
+    sourceIds?: Record<string, string>;
+  }) =>
+    postConcept<{ node: string }>(
+      "MultiSourceNetwork",
+      "createNodeForUser",
+      payload,
+    ),
+  searchNodes: (
+    payload: { owner: string; query?: string; limit?: number; offset?: number },
+  ) =>
+    postConcept<{ results: Array<Record<string, unknown>>; total: number }>(
+      "MultiSourceNetwork",
+      "searchNodes",
+      payload,
+    ),
   removeNodeFromNetwork: (payload: {
     owner: string;
     node: string;
@@ -78,9 +107,15 @@ export const MultiSourceNetworkAPI = {
     source: string;
   }) => postConcept("MultiSourceNetwork", "removeEdge", payload),
   getAdjacencyArray: (payload: { owner: string }) =>
-    postConcept<AdjacencyMap>(
+    postConcept<AdjacencyResponse>(
       "MultiSourceNetwork",
       "_getAdjacencyArray",
+      payload,
+    ),
+  getNodes: (payload: { ids: string[]; owner?: string }) =>
+    postConcept<Array<Record<string, unknown>>>(
+      "MultiSourceNetwork",
+      "getNodes",
       payload,
     ),
 };
@@ -154,6 +189,38 @@ export const UserAuthenticationAPI = {
     ),
 };
 
+export interface LinkedInConnection {
+  _id: string;
+  account: string;
+  linkedInConnectionId: string;
+  firstName?: string;
+  lastName?: string;
+  headline?: string;
+  location?: string;
+  industry?: string;
+  currentPosition?: string;
+  currentCompany?: string;
+  profileUrl?: string;
+  profilePictureUrl?: string;
+  summary?: string;
+  skills?: string[];
+  education?: Array<{
+    school?: string;
+    degree?: string;
+    fieldOfStudy?: string;
+    startYear?: number;
+    endYear?: number;
+  }>;
+  experience?: Array<{
+    title?: string;
+    company?: string;
+    startDate?: string;
+    endDate?: string;
+    description?: string;
+  }>;
+  importedAt: string;
+}
+
 export const LinkedInImportAPI = {
   connectLinkedInAccount: (payload: {
     user: string;
@@ -181,10 +248,22 @@ export const LinkedInImportAPI = {
         lastImportedAt?: string;
       }>
     >("LinkedInImport", "_getLinkedInAccount", payload),
+  getConnections: (payload: { account: string }) =>
+    postConcept<LinkedInConnection[]>(
+      "LinkedInImport",
+      "_getConnections",
+      payload,
+    ),
   importConnectionsFromCSV: (
     payload: { account: string; csvContent: string },
   ) =>
-    postConcept<{ importJob: string; connectionsImported: number }>(
+    postConcept<
+      {
+        importJob: string;
+        connectionsImported: number;
+        connections: LinkedInConnection[];
+      }
+    >(
       "LinkedInImport",
       "importConnectionsFromCSV",
       payload,
@@ -192,7 +271,13 @@ export const LinkedInImportAPI = {
   importConnectionsFromJSON: (
     payload: { account: string; jsonContent: string },
   ) =>
-    postConcept<{ importJob: string; connectionsImported: number }>(
+    postConcept<
+      {
+        importJob: string;
+        connectionsImported: number;
+        connections: LinkedInConnection[];
+      }
+    >(
       "LinkedInImport",
       "importConnectionsFromJSON",
       payload,
@@ -218,3 +303,5 @@ export const SemanticSearchAPI = {
       payload,
     ),
 };
+
+// End of concept client
