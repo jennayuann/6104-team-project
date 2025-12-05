@@ -330,6 +330,7 @@ export default class SemanticSearchConcept {
       })
       .toArray();
 
+    // deno-lint-ignore no-explicit-any
     const byId = new Map<string, any>(
       docs.map((doc) => [String(doc._id), doc]),
     );
