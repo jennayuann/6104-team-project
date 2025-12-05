@@ -3,9 +3,7 @@
 fastapi
 uvicorn[standard]
 txtai[api]
-fastapi-mcp
-
 sentence-transformers
-torch==2.5.1+cpu
-torchvision==0.20.1+cpu
-torchaudio==2.5.1+cpu
+torch==2.9.1+cpu
+torchvision==0.24.1+cpu
+torchaudio==2.9.1+cpu
