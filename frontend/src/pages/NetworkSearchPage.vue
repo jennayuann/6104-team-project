@@ -203,7 +203,11 @@
             </div>
 
             <div class="modal-body">
-                <div v-if="isEditing" class="edit-form">
+                        <div v-if="isEditing" class="edit-form">
+                            <!-- Temporary notice: profile editing currently unstable -->
+                            <div class="banner warning" style="margin-bottom: 1rem; padding: 0.75rem 1rem; background: #fffbeb; border: 1px solid #f59e0b; border-radius: 0.5rem; color: #92400e;">
+                                <strong>Note:</strong> Profile editing is currently not fully functional in this preview. We're actively working on fixes — changes you make here may not be saved yet.
+                            </div>
                     <!-- Profile Picture Upload -->
                     <div class="form-section">
                         <label class="form-label">Profile Picture</label>
