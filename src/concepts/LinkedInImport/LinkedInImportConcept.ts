@@ -900,7 +900,11 @@ Return ONLY a JSON object mapping CSV column names to ConnectionDoc field names.
     account: LinkedInAccount;
     csvContent: string;
   }): Promise<
-    | { importJob: ImportJob; connectionsImported: number; connections: Array<ConnectionDoc> }
+    | {
+      importJob: ImportJob;
+      connectionsImported: number;
+      connections: Array<ConnectionDoc>;
+    }
     | { error: string }
   > {
     // Validate account exists
@@ -925,6 +929,30 @@ Return ONLY a JSON object mapping CSV column names to ConnectionDoc field names.
     });
 
     try {
+      // Strip leading LinkedIn note header if present: some exported CSVs include
+      // a three-line note where the first line begins with 'note' (case-insensitive),
+      // the second line is human-readable text, and the third line is blank.
+      // In that case remove the first three lines before parsing so headers map correctly.
+      try {
+        const rawLines = csvContent.split("\n");
+        if (rawLines.length >= 3) {
+          const first = (rawLines[0] || "").trim();
+          const second = (rawLines[1] || "").trim();
+          const third = (rawLines[2] || "").trim();
+          const firstLooksLikeNote = /^\s*note[:\s]?/i.test(first) ||
+            first.toLowerCase() === "note";
+          if (firstLooksLikeNote && second.length > 0 && third === "") {
+            // Strip the first three lines
+            csvContent = rawLines.slice(3).join("\n");
+            console.log(
+              "[LinkedInImport] Detected leading LinkedIn note header - stripped first 3 lines before parsing",
+            );
+          }
+        }
+      } catch (_e) {
+        // best-effort: if anything goes wrong here, fall back to original csvContent
+      }
+
       // Parse CSV
       const parseResult = this.parseCSV(csvContent);
       if ("error" in parseResult) {
@@ -1106,7 +1134,9 @@ Return ONLY a JSON object mapping CSV column names to ConnectionDoc field names.
           connectionsImported++;
           // Fetch the created connection document to include in return value
           if (addResult.connection) {
-            const connDoc = await this.connections.findOne({ _id: addResult.connection });
+            const connDoc = await this.connections.findOne({
+              _id: addResult.connection,
+            });
             if (connDoc) {
               createdConnections.push(connDoc);
             }
@@ -1149,7 +1179,11 @@ Return ONLY a JSON object mapping CSV column names to ConnectionDoc field names.
         );
       }
 
-      return { importJob: importJobId, connectionsImported, connections: createdConnections };
+      return {
+        importJob: importJobId,
+        connectionsImported,
+        connections: createdConnections,
+      };
     } catch (e) {
       const err = e instanceof Error ? e : new Error(String(e));
       await this.importJobs.updateOne(
