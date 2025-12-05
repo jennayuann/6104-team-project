@@ -7,7 +7,7 @@
                 <div>
                     <h1 class="header-title">Network Search</h1>
                     <p class="header-subtitle">
-                        Search and filter your network connections
+                        Currently, used for dev but provides a nice search interface and basic filtering with the cards representing the connections.
                     </p>
                 </div>
             </div>
