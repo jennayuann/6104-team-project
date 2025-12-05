@@ -1,5 +1,10 @@
 <template>
     <div class="network-search-page">
+        <!-- Warning Banner -->
+        <div class="banner warning" style="margin-bottom: 1.5rem; padding: 1rem 1.25rem; background: #fef3c7; border: 1px solid #f59e0b; border-radius: 0.75rem; color: #92400e;">
+            <strong>⚠️ Warning:</strong> This entire tab is still under development. Features may be incomplete or subject to change.
+        </div>
+
         <!-- Header -->
         <div class="search-header">
             <div class="header-content">

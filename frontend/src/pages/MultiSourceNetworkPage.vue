@@ -3,13 +3,10 @@
         <div class="card" style="grid-column: 1 / -1; margin-bottom: 1rem">
             <p class="muted" style="margin: 0">
                 <strong>⚠️ Warning:</strong> Assuming all usernames are unique
-                for now. You can add nodes and edges using usernames instead of
-                user IDs.
+                for now. You can add nodes and edges using names, when typing in names of people in create edge form, there should be popups.
             </p>
             <p class="muted" style="margin: 0.5rem 0 0 0">
-                <strong>Note:</strong> Nodes and edges can be added using
-                usernames. The system will automatically resolve usernames to
-                user IDs.
+                <strong>Note:</strong> UI/UX is still in progress of polishing.
             </p>
         </div>
         <section class="card">
@@ -361,8 +358,7 @@
                 connections.
             </p>
             <div class="banner info" style="margin-bottom: 1rem">
-                ⚠️ Network visualization is still under implementation. The
-                "Refresh View" button will show debug information.
+                ⚠️ If the graph is not displaying, click "Create Network" to refresh the visualization. Refresh View is a little bit buggy.
             </div>
             <StatusBanner
                 v-if="banner && banner.section === 'explorer'"
