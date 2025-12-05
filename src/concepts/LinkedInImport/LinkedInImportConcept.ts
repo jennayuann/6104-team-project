@@ -1224,7 +1224,7 @@ Return ONLY a JSON object mapping CSV column names to ConnectionDoc field names.
     account: LinkedInAccount;
     jsonContent: string;
   }): Promise<
-    | { importJob: ImportJob; connectionsImported: number }
+    | { importJob: ImportJob; connectionsImported: number; connections: Array<ConnectionDoc> }
     | { error: string }
   > {
     // Validate account exists
@@ -1315,9 +1315,10 @@ Return ONLY a JSON object mapping CSV column names to ConnectionDoc field names.
 
       const fieldMapping = mappingResult;
 
-      // Process each connection object
-      let connectionsImported = 0;
-      const errors: string[] = [];
+  // Process each connection object
+  let connectionsImported = 0;
+  const errors: string[] = [];
+  const createdConnections: Array<ConnectionDoc> = [];
 
       for (let objIndex = 0; objIndex < connectionsArray.length; objIndex++) {
         const connectionObj = connectionsArray[objIndex];
@@ -1469,6 +1470,11 @@ Return ONLY a JSON object mapping CSV column names to ConnectionDoc field names.
           errors.push(`Object ${objIndex + 1}: ${addResult.error}`);
         } else {
           connectionsImported++;
+          // Fetch the created connection document to include in return value
+          if (addResult.connection) {
+            const connDoc = await this.connections.findOne({ _id: addResult.connection });
+            if (connDoc) createdConnections.push(connDoc);
+          }
         }
       }
 
@@ -1495,7 +1501,7 @@ Return ONLY a JSON object mapping CSV column names to ConnectionDoc field names.
         );
       }
 
-      return { importJob: importJobId, connectionsImported };
+  return { importJob: importJobId, connectionsImported, connections: createdConnections };
     } catch (e) {
       const err = e instanceof Error ? e : new Error(String(e));
       await this.importJobs.updateOne(

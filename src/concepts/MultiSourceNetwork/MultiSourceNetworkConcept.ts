@@ -1073,10 +1073,7 @@ export default class MultiSourceNetworkConcept {
 
   async _getAdjacencyArray(
     { owner }: { owner: Owner },
-  ): Promise<{
-    adjacency: Record<Node, Array<{ to: Node; source: Source; weight?: number }>>;
-    nodeLabels: Record<Node, string | undefined>;
-  }> {
+  ): Promise<Record<string, Array<{ to: Node; source: Source; weight?: number }>>> {
     console.log(
       "[MultiSourceNetwork] _getAdjacencyArray called for owner:",
       owner,
@@ -1125,11 +1122,8 @@ export default class MultiSourceNetworkConcept {
       );
     }
 
-    const adjacency: Record<
-      Node,
-      Array<{ to: Node; source: Source; weight?: number }>
-    > = {};
-    const nodeLabels: Record<Node, string | undefined> = {};
+    const adjacency: Record<string, Array<{ to: Node; source: Source; weight?: number }>> = {};
+    const nodeLabels: Record<string, string | undefined> = {};
 
     // First, get all memberships to initialize nodes and collect labels
     const memberships = await this.memberships.find({ owner }).toArray();
@@ -1140,10 +1134,10 @@ export default class MultiSourceNetworkConcept {
       owner,
     );
     for (const m of memberships) {
-      adjacency[m.node] = [];
+      adjacency[String(m.node)] = [];
       // Store label if available
       if (m.label) {
-        nodeLabels[m.node] = m.label;
+        nodeLabels[String(m.node)] = m.label;
         console.log("[MultiSourceNetwork] _getAdjacencyArray: Node", m.node, "has label:", m.label);
       }
     }
@@ -1157,9 +1151,10 @@ export default class MultiSourceNetworkConcept {
       owner,
     );
     for (const edge of ownerEdges) {
+  const fromKey = String(edge.from);
       // Ensure the "from" node exists in adjacency (even if not in memberships)
-      if (!adjacency[edge.from]) {
-        adjacency[edge.from] = [];
+      if (!adjacency[fromKey]) {
+        adjacency[fromKey] = [];
         console.log(
           "[MultiSourceNetwork] _getAdjacencyArray: Added 'from' node",
           edge.from,
@@ -1168,7 +1163,7 @@ export default class MultiSourceNetworkConcept {
       }
 
       // Add the edge connection
-      adjacency[edge.from].push({
+      adjacency[fromKey].push({
         to: edge.to,
         source: edge.source,
         weight: edge.weight,
@@ -1180,10 +1175,7 @@ export default class MultiSourceNetworkConcept {
     }
 
     const nodeCount = Object.keys(adjacency).length;
-    const totalEdges = Object.values(adjacency).reduce(
-      (sum, edges) => sum + edges.length,
-      0,
-    );
+    const totalEdges = Object.values(adjacency).reduce((sum, edges) => sum + edges.length, 0);
     console.log(
       "[MultiSourceNetwork] _getAdjacencyArray SUCCESS: Returning adjacency with",
       nodeCount,
@@ -1195,7 +1187,7 @@ export default class MultiSourceNetworkConcept {
       "[MultiSourceNetwork] _getAdjacencyArray: Node labels:",
       nodeLabels,
     );
-    return { adjacency, nodeLabels };
+    return adjacency;
   }
 
   /**
