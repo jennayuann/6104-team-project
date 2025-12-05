@@ -586,7 +586,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from "vue";
+import { ref, computed, onMounted } from "vue";
 import {
     MultiSourceNetworkAPI,
     type AdjacencyMap,
@@ -936,7 +936,7 @@ const filteredResults = computed(() => {
         } else if (filter.type === "degree") {
             // For now, degree filtering is simplified - would need path calculation
             // This is a placeholder for when the backend supports it
-            const degree = parseInt(filter.value);
+            // const degree = parseInt(filter.value); (unused placeholder)
             // Filter logic would go here - for now, don't filter
         } else if (filter.type === "company") {
             results = results.filter((node) => {
@@ -1446,7 +1446,18 @@ async function loadNetworkData() {
             MultiSourceNetworkAPI.getAdjacencyArray({
                 owner: auth.userId,
             }).then((data) => {
-                adjacency.value = data;
+                if (!data) {
+                    adjacency.value = null;
+                    return data;
+                }
+
+                // Accept both shapes: { adjacency, nodeLabels } or the legacy adjacency map
+                if (typeof data === "object" && "adjacency" in data) {
+                    adjacency.value = { ...((data as any).adjacency || {}) };
+                } else {
+                    adjacency.value = { ...(data as any) };
+                }
+
                 return data;
             }),
         ]);

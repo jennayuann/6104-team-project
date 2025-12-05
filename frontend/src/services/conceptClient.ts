@@ -107,7 +107,7 @@ export const MultiSourceNetworkAPI = {
     source: string;
   }) => postConcept("MultiSourceNetwork", "removeEdge", payload),
   getAdjacencyArray: (payload: { owner: string }) =>
-    postConcept<AdjacencyMap>(
+    postConcept<AdjacencyResponse | AdjacencyMap>(
       "MultiSourceNetwork",
       "_getAdjacencyArray",
       payload,
