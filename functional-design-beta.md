@@ -508,13 +508,13 @@ Social media apps for networking don’t help with the problem of finding who I 
 **sync** addLinkedInConnectionToNetwork
 
 **when**
-- LinkedInImport.addConnection (account, linkedInConnectionId, ...) : (connection)
+- LinkedInImport.importConnectionsFromCSV (account, csvContent): (importJob, connectionsImported)
 
 **where**
 - in LinkedInImport: get user (owner) from account
 
 **then**
-- MultiSourceNetwork.addNodeToNetwork (owner: user, node: connection, source: "linkedin")
+- MultiSourceNetwork.addOrMigrateNodeFromSource ({ owner, legacyNodeId?, source, nodeMeta?, externalId? }): { node }
 
 <br>
 
