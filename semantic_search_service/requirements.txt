@@ -2,7 +2,7 @@
 
 fastapi
 uvicorn[standard]
-txtai
+txtai[api]
 sentence-transformers
 torch==2.4.1+cpu
 torchvision==0.19.1+cpu
