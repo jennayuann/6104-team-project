@@ -4,9 +4,6 @@
       <h2 style="margin-top: 0">Profile actions</h2>
       <p class="muted">Manage your public profile.</p>
       <div class="action-buttons">
-        <button type="button" @click="showCreateModal = true">
-          Create Profile
-        </button>
         <button type="button" @click="showUpdateModal = true">
           Update Profile
         </button>
@@ -95,7 +92,6 @@ import { useAuthStore } from "../stores/useAuthStore";
 import { SemanticSearchAPI } from "../services/conceptClient";
 const auth = useAuthStore();
 
-const showCreateModal = ref(false);
 const showUpdateModal = ref(false);
 
 const inspectUser = ref("");

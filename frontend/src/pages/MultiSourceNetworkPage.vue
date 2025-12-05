@@ -15,7 +15,7 @@
         <section class="card">
             <h2>Bootstrap a Network</h2>
             <p class="muted">
-                Create a network shell and optionally pick a root node.
+                Create a network shell for your account.
             </p>
             <StatusBanner
                 v-if="banner && banner.section === 'create'"
@@ -23,41 +23,7 @@
                 :message="banner.message"
             />
             <form class="form-grid" @submit.prevent="handleCreateNetwork">
-                <label>
-                    Root Node (optional - Username or User ID)
-                    <input
-                        v-model.trim="createForm.root"
-                        placeholder="Enter username or user ID"
-                    />
-                </label>
                 <button type="submit">Create Network</button>
-            </form>
-
-            <hr
-                style="
-                    margin: 1.5rem 0;
-                    border: none;
-                    height: 1px;
-                    background: #e2e8f0;
-                "
-            />
-
-            <h3 style="margin-top: 0">Update Root Node</h3>
-            <StatusBanner
-                v-if="banner && banner.section === 'root'"
-                :type="banner.type"
-                :message="banner.message"
-            />
-            <form class="form-grid" @submit.prevent="handleSetRoot">
-                <label>
-                    Root Node (Username or User ID)
-                    <input
-                        v-model.trim="rootForm.root"
-                        required
-                        placeholder="Enter username or user ID"
-                    />
-                </label>
-                <button type="submit">Set Root</button>
             </form>
         </section>
 
@@ -458,6 +424,114 @@
 
             <div class="network-visualization-container">
                 <div ref="networkContainer" class="network-graph"></div>
+                <!-- Node info tooltip -->
+                <div
+                    v-if="hoveredNodeInfo"
+                    class="node-info-tooltip"
+                    :style="tooltipStyle"
+                    @click.stop
+                    @mousedown.stop
+                >
+                    <div class="tooltip-header">
+                        <strong>{{ hoveredNodeInfo.name }}</strong>
+                        <span v-if="hoveredNodeInfo.degree !== undefined" class="degree-badge" :style="{ backgroundColor: getDegreeColorForTooltip(hoveredNodeInfo.degree) }">
+                            {{ hoveredNodeInfo.degree === 0 ? 'Root' : `${hoveredNodeInfo.degree}${getOrdinalSuffix(hoveredNodeInfo.degree)} Degree` }}
+                        </span>
+                    </div>
+                    <div v-if="hoveredNodeInfo.label" class="tooltip-field">
+                        <strong>Label:</strong> {{ hoveredNodeInfo.label }}
+                    </div>
+                    <div class="tooltip-field">
+                        <strong>Headline:</strong> {{ hoveredNodeInfo.headline || 'Not available' }}
+                    </div>
+                    <div class="tooltip-field">
+                        <strong>Position:</strong>
+                        <span v-if="hoveredNodeInfo.currentPosition">{{ hoveredNodeInfo.currentPosition }}</span>
+                        <span v-if="hoveredNodeInfo.currentCompany">
+                            <span v-if="hoveredNodeInfo.currentPosition"> at </span>{{ hoveredNodeInfo.currentCompany }}
+                        </span>
+                        <span v-if="!hoveredNodeInfo.currentPosition && !hoveredNodeInfo.currentCompany">Not available</span>
+                    </div>
+                    <div class="tooltip-field">
+                        <strong>Location:</strong> {{ hoveredNodeInfo.location || 'Not available' }}
+                    </div>
+                    <div class="tooltip-field">
+                        <strong>Industry:</strong> {{ hoveredNodeInfo.industry || 'Not available' }}
+                    </div>
+                    <div class="tooltip-field">
+                        <strong>Profile URL:</strong>
+                        <span v-if="hoveredNodeInfo.profileUrl">
+                            <a :href="hoveredNodeInfo.profileUrl" target="_blank" rel="noopener noreferrer" style="color: #2563eb; text-decoration: underline;">
+                                {{ hoveredNodeInfo.profileUrl }}
+                            </a>
+                        </span>
+                        <span v-else>Not available</span>
+                    </div>
+                    <div class="tooltip-field">
+                        <strong>Avatar URL:</strong>
+                        <span v-if="hoveredNodeInfo.avatarUrl || hoveredNodeInfo.profilePictureUrl">
+                            <a :href="(hoveredNodeInfo.avatarUrl || hoveredNodeInfo.profilePictureUrl) || '#'" target="_blank" rel="noopener noreferrer" style="color: #2563eb; text-decoration: underline;">
+                                {{ hoveredNodeInfo.avatarUrl || hoveredNodeInfo.profilePictureUrl }}
+                            </a>
+                        </span>
+                        <span v-else>Not available</span>
+                    </div>
+                    <div class="tooltip-field">
+                        <strong>Summary:</strong> {{ hoveredNodeInfo.summary || 'Not available' }}
+                    </div>
+                    <div class="tooltip-field">
+                        <strong>Skills:</strong>
+                        <span v-if="hoveredNodeInfo.skills && hoveredNodeInfo.skills.length > 0">
+                            {{ hoveredNodeInfo.skills.join(', ') }}
+                        </span>
+                        <span v-else>Not available</span>
+                    </div>
+                    <div class="tooltip-field">
+                        <strong>Education:</strong>
+                        <span v-if="hoveredNodeInfo.education && hoveredNodeInfo.education.length > 0">
+                            <ul style="margin: 0.25rem 0 0 1.25rem; padding: 0;">
+                                <li v-for="(edu, idx) in hoveredNodeInfo.education" :key="idx" style="margin: 0.25rem 0;">
+                                    {{ edu.school || 'Unknown' }}{{ edu.degree ? ` - ${edu.degree}` : '' }}
+                                </li>
+                            </ul>
+                        </span>
+                        <span v-else>Not available</span>
+                    </div>
+                    <div class="tooltip-field">
+                        <strong>Experience:</strong>
+                        <span v-if="hoveredNodeInfo.experience && hoveredNodeInfo.experience.length > 0">
+                            <ul style="margin: 0.25rem 0 0 1.25rem; padding: 0;">
+                                <li v-for="(exp, idx) in hoveredNodeInfo.experience" :key="idx" style="margin: 0.25rem 0;">
+                                    {{ exp.title || 'Unknown' }}{{ exp.company ? ` at ${exp.company}` : '' }}{{ exp.startDate || exp.endDate ? ` (${exp.startDate || '?'} - ${exp.endDate || 'Present'})` : '' }}
+                                </li>
+                            </ul>
+                        </span>
+                        <span v-else>Not available</span>
+                    </div>
+                    <div class="tooltip-field">
+                        <strong>Tags:</strong>
+                        <span v-if="hoveredNodeInfo.tags && hoveredNodeInfo.tags.length > 0">
+                            {{ hoveredNodeInfo.tags.join(', ') }}
+                        </span>
+                        <span v-else>Not available</span>
+                    </div>
+                    <div v-if="hoveredNodeInfo.sourceIds && Object.keys(hoveredNodeInfo.sourceIds).length > 0" class="tooltip-field">
+                        <strong>Source IDs:</strong>
+                        <ul style="margin: 0.25rem 0 0 1.25rem; padding: 0;">
+                            <li v-for="(sourceId, source) in hoveredNodeInfo.sourceIds" :key="source" style="margin: 0.25rem 0;">
+                                <strong>{{ source }}:</strong> {{ sourceId }}
+                            </li>
+                        </ul>
+                    </div>
+                    <div v-if="hoveredNodeInfo.createdAt || hoveredNodeInfo.updatedAt" class="tooltip-field" style="font-size: 0.75rem; color: #64748b; margin-top: 0.5rem; border-top: 1px solid rgba(0, 0, 0, 0.1); padding-top: 0.5rem;">
+                        <div v-if="hoveredNodeInfo.createdAt">
+                            <strong>Created:</strong> {{ new Date(hoveredNodeInfo.createdAt).toLocaleString() }}
+                        </div>
+                        <div v-if="hoveredNodeInfo.updatedAt">
+                            <strong>Updated:</strong> {{ new Date(hoveredNodeInfo.updatedAt).toLocaleString() }}
+                        </div>
+                    </div>
+                </div>
                 <div
                     v-if="!networkInstance && adjacency && Object.keys(adjacency).length > 0"
                     class="muted"
@@ -545,9 +619,8 @@ import {
 import { useAuthStore } from "@/stores/useAuthStore";
 import { useAvatarStore } from "@/stores/useAvatarStore";
 
-type BannerSection = "create" | "root" | "nodes" | "edges" | "explorer";
+type BannerSection = "create" | "nodes" | "edges" | "explorer";
 
-const createForm = reactive({ root: "" });
 const createNodeForm = reactive({
     firstName: "",
     lastName: "",
@@ -568,7 +641,6 @@ const createNodeForm = reactive({
     educationInput: "",
     experienceInput: "",
 });
-const rootForm = reactive({ root: "" });
 const nodeForm = reactive({ node: "", source: "" });
 const removeNodeForm = reactive({ nodeId: "", nodeDisplay: "", source: "" });
 const removeNodeSearchQuery = ref("");
@@ -617,10 +689,56 @@ const nodeProfiles = ref<
     >
 >({});
 const nodeMetaMap = ref<
-    Record<string, { firstName?: string; lastName?: string; label?: string }>
+    Record<string, {
+        firstName?: string;
+        lastName?: string;
+        label?: string;
+        headline?: string | null;
+        profileUrl?: string | null;
+        avatarUrl?: string | null;
+        location?: string | null;
+        industry?: string | null;
+        currentPosition?: string | null;
+        currentCompany?: string | null;
+        profilePictureUrl?: string | null;
+        summary?: string | null;
+        skills?: string[];
+        education?: any[];
+        experience?: any[];
+        tags?: string[] | null;
+        sourceIds?: Record<string, string>;
+        createdAt?: string;
+        updatedAt?: string;
+    }>
 >({});
 // Zoom display
 const currentZoom = ref<number>(1.0);
+
+// Node hover tooltip
+const hoveredNodeInfo = ref<{
+    name: string;
+    label?: string | null;
+    headline?: string | null;
+    currentPosition?: string | null;
+    currentCompany?: string | null;
+    location?: string | null;
+    industry?: string | null;
+    profileUrl?: string | null;
+    avatarUrl?: string | null;
+    profilePictureUrl?: string | null;
+    summary?: string | null;
+    skills?: string[];
+    education?: any[];
+    experience?: any[];
+    tags?: string[] | null;
+    sourceIds?: Record<string, string>;
+    createdAt?: string;
+    updatedAt?: string;
+    degree?: number;
+} | null>(null);
+const tooltipStyle = ref<{ left: string; top: string }>({ left: '0px', top: '0px' });
+const clickedNodeId = ref<string | null>(null);
+const tooltipPosition = ref<{ x: number; y: number } | null>(null);
 
 function showBanner(
     section: BannerSection,
@@ -672,18 +790,15 @@ async function resolveToUserId(input: string): Promise<string> {
 
 async function handleCreateNetwork() {
     if (!auth.userId) return;
-    let resolvedRoot = createForm.root
-        ? await resolveToUserId(createForm.root)
-        : undefined;
-    // If no root is provided, use the owner as the root node
-    const rootNode = resolvedRoot || auth.userId;
+    // Always use the owner as the root node
+    const rootNode = auth.userId;
     const payload = {
         owner: auth.userId,
         root: rootNode,
     };
     try {
         const result = await MultiSourceNetworkAPI.createNetwork(payload);
-        // Set root node to the resolved root (which defaults to owner)
+        // Set root node to the owner
         rootNodeId.value = rootNode;
         logActivity(
             "create",
@@ -692,8 +807,6 @@ async function handleCreateNetwork() {
             "success",
             `Network ${result.network} created with root node: ${rootNode}.`
         );
-        // Clear the form
-        createForm.root = "";
         // Automatically refresh visualization to show the owner node immediately
         // The backend automatically adds the owner as a membership node with source "self"
         await fetchAdjacency();
@@ -712,34 +825,6 @@ async function handleCreateNetwork() {
     }
 }
 
-async function handleSetRoot() {
-    if (!auth.userId) return;
-    const resolvedRoot = await resolveToUserId(rootForm.root);
-    const payload = { owner: auth.userId, root: resolvedRoot };
-    try {
-        await MultiSourceNetworkAPI.setRootNode(payload);
-        rootNodeId.value = resolvedRoot;
-        logActivity(
-            "root",
-            "setRootNode",
-            payload,
-            "success",
-            "Root node updated."
-        );
-        // Refresh visualization if adjacency is already loaded
-        if (adjacency.value) {
-            await renderNetwork();
-        }
-    } catch (error) {
-        logActivity(
-            "root",
-            "setRootNode",
-            payload,
-            "error",
-            formatError(error)
-        );
-    }
-}
 
 async function handleAddNode() {
     if (!auth.userId) return;
@@ -1274,6 +1359,22 @@ async function fetchAdjacency() {
                         firstName: r.firstName,
                         lastName: r.lastName,
                         label: r.label,
+                        headline: r.headline,
+                        profileUrl: r.profileUrl,
+                        avatarUrl: r.avatarUrl,
+                        location: r.location,
+                        industry: r.industry,
+                        currentPosition: r.currentPosition,
+                        currentCompany: r.currentCompany,
+                        profilePictureUrl: r.profilePictureUrl,
+                        summary: r.summary,
+                        skills: r.skills,
+                        education: r.education,
+                        experience: r.experience,
+                        tags: r.tags,
+                        sourceIds: r.sourceIds,
+                        createdAt: r.createdAt,
+                        updatedAt: r.updatedAt,
                     };
                 }
             }
@@ -1784,12 +1885,26 @@ async function renderNetwork() {
       width: 2,
         },
         physics: {
-            // For hierarchical layout, we can use physics for stabilization
-            // but it will be overridden by the hierarchical positioning
-            enabled: false, // Disable physics when using hierarchical layout for cleaner organization
+            enabled: true,
             stabilization: {
-                enabled: false,
-                iterations: 0,
+                enabled: true,
+                iterations: 200,
+            },
+            // Adjust physics for single node (centered) or multiple nodes
+            barnesHut: nodes.length > 1 ? {
+                gravitationalConstant: -4000, // More repulsion for better spacing
+                centralGravity: 0.04, // Less central gravity
+                springLength: 400, // Longer spring length for more spacing
+                springConstant: 0.02, // Less spring constant for looser connections
+                damping: 0.1, // Slightly more damping
+                avoidOverlap: 1.5, // Increased overlap avoidance to prevent edge-node crossing
+            } : {
+                gravitationalConstant: -500,
+                centralGravity: 0.1,
+                springLength: 350,
+                springConstant: 0.001,
+                damping: 0.09,
+                avoidOverlap: 0,
             },
         },
         interaction: {
@@ -1800,19 +1915,8 @@ async function renderNetwork() {
             dragNodes: true, // Allow dragging individual nodes (except root node which is fixed)
         },
         layout: {
-            // Use hierarchical layout for better organization by degree
-            hierarchical: nodes.length > 1 ? {
-                enabled: true,
-                direction: "UD", // Up-Down layout (root at top)
-                sortMethod: "directed", // Use directed graph structure
-                levelSeparation: 250, // Vertical spacing between levels (degrees)
-                nodeSpacing: 300, // Horizontal spacing between nodes at same level
-                treeSpacing: 350, // Spacing between different branches
-                blockShifting: true, // Allow nodes to shift to avoid overlap
-                edgeMinimization: true, // Minimize edge crossings
-                parentCentralization: true, // Center parent nodes
-            } : false,
-            improvedLayout: false, // Don't use improvedLayout when hierarchical is enabled
+            // Use improved layout for better node distribution
+            improvedLayout: nodes.length > 1,
         },
     };
 
@@ -1849,6 +1953,9 @@ async function renderNetwork() {
             options
         );
         console.log("Network visualization created successfully");
+
+        // Add hover event listeners for node information display
+        setupNodeHoverTooltip();
 
         // Add constraints to prevent nodes from being dragged outside the viewport
         setupNodeConstraints();
@@ -1935,6 +2042,184 @@ function centerOnRootNode() {
     } catch (error) {
         console.warn("Error centering on root node:", error);
     }
+}
+
+// Setup hover tooltip for nodes
+function setupNodeHoverTooltip() {
+    if (!networkInstance.value || !networkContainer.value) return;
+
+    // Calculate node degrees for tooltip (same logic as in renderNetwork)
+    const rootId = rootNodeId.value || auth.userId;
+    const nodeIds = Object.keys(adjacency.value || {});
+    const tooltipNodeDegrees = new Map<string, number>();
+
+    if (rootId && nodeIds.includes(rootId)) {
+        // Build bidirectional adjacency for degree calculation
+        const bidirectionalAdj: Record<string, Set<string>> = {};
+        for (const nodeId of nodeIds) {
+            bidirectionalAdj[nodeId] = new Set<string>();
+        }
+
+        for (const nodeId of nodeIds) {
+            const nodeEdges = adjacency.value?.[nodeId] || [];
+            for (const edge of nodeEdges) {
+                bidirectionalAdj[nodeId].add(edge.to);
+                if (!bidirectionalAdj[edge.to]) {
+                    bidirectionalAdj[edge.to] = new Set<string>();
+                }
+                bidirectionalAdj[edge.to].add(nodeId);
+            }
+        }
+
+        // BFS to calculate degrees
+        const queue: Array<{ id: string; degree: number }> = [{ id: rootId, degree: 0 }];
+        tooltipNodeDegrees.set(rootId, 0);
+        const visited = new Set<string>([rootId]);
+
+        while (queue.length > 0) {
+            const current = queue.shift()!;
+            const neighbors = bidirectionalAdj[current.id] || new Set<string>();
+
+            for (const neighborId of neighbors) {
+                if (!visited.has(neighborId)) {
+                    visited.add(neighborId);
+                    const nextDegree = current.degree + 1;
+                    tooltipNodeDegrees.set(neighborId, nextDegree);
+                    queue.push({ id: neighborId, degree: nextDegree });
+                }
+            }
+        }
+    }
+
+    // Function to update tooltip with node information
+    function updateNodeTooltip(nodeId: string, event?: MouseEvent) {
+        if (!nodeId || !networkContainer.value) {
+            if (!clickedNodeId.value) {
+                hoveredNodeInfo.value = null;
+            }
+            return;
+        }
+
+        // Get node data from MultiSourceNetwork.nodes (stored in nodeMetaMap)
+        const nodeData = nodeMetaMap.value[nodeId] || {};
+        const profileData = nodeProfiles.value[nodeId];
+        const degree = tooltipNodeDegrees.get(nodeId) ?? 999;
+
+        // Get profile information if available (from PublicProfile, as fallback)
+        const profile = profileData?.profile as any;
+
+        // Build node name - prefer label, then firstName+lastName, then username
+        const nodeName = nodeData.label ||
+            ((nodeData.firstName || "") + " " + (nodeData.lastName || "")).trim() ||
+            (nodeId === auth.userId
+                ? auth.username || profileData?.username || nodeId
+                : profileData?.username || nodeId);
+
+        // Use node data from MultiSourceNetwork.nodes, fallback to profile data
+        hoveredNodeInfo.value = {
+            name: nodeName,
+            label: nodeData.label,
+            headline: nodeData.headline ?? profile?.headline,
+            currentPosition: nodeData.currentPosition ?? profile?.currentPosition,
+            currentCompany: nodeData.currentCompany ?? profile?.currentCompany,
+            location: nodeData.location ?? profile?.location,
+            industry: nodeData.industry ?? profile?.industry,
+            profileUrl: nodeData.profileUrl ?? profile?.profileUrl,
+            avatarUrl: nodeData.avatarUrl ?? nodeData.profilePictureUrl,
+            profilePictureUrl: nodeData.profilePictureUrl,
+            summary: nodeData.summary ?? profile?.summary,
+            skills: nodeData.skills ?? profile?.skills,
+            education: nodeData.education ?? profile?.education,
+            experience: nodeData.experience ?? profile?.experience,
+            tags: nodeData.tags,
+            sourceIds: nodeData.sourceIds,
+            createdAt: nodeData.createdAt,
+            updatedAt: nodeData.updatedAt,
+            degree: degree === 999 ? undefined : degree,
+        };
+
+        // Position tooltip near the cursor or use stored position
+        if (event && networkContainer.value) {
+            const containerRect = networkContainer.value.getBoundingClientRect();
+            const x = event.clientX - containerRect.left + 15;
+            const y = event.clientY - containerRect.top + 15;
+            tooltipPosition.value = { x, y };
+            tooltipStyle.value = {
+                left: `${x}px`,
+                top: `${y}px`,
+            };
+        } else if (tooltipPosition.value) {
+            // Use stored position if no event provided
+            tooltipStyle.value = {
+                left: `${tooltipPosition.value.x}px`,
+                top: `${tooltipPosition.value.y}px`,
+            };
+        }
+    }
+
+    networkInstance.value.on("hoverNode", (params: any) => {
+        // Only update on hover if no node is clicked
+        if (!clickedNodeId.value) {
+            updateNodeTooltip(params.node, params.event);
+        }
+    });
+
+    networkInstance.value.on("blurNode", () => {
+        // Only hide on blur if no node is clicked
+        if (!clickedNodeId.value) {
+            hoveredNodeInfo.value = null;
+        }
+    });
+
+    // Handle node click - persist tooltip
+    networkInstance.value.on("click", (params: any) => {
+        if (params.nodes && params.nodes.length > 0) {
+            // Node was clicked
+            const nodeId = params.nodes[0];
+            if (clickedNodeId.value === nodeId) {
+                // Same node clicked again - deselect
+                clickedNodeId.value = null;
+                hoveredNodeInfo.value = null;
+                tooltipPosition.value = null;
+            } else {
+                // New node clicked - show tooltip
+                clickedNodeId.value = nodeId;
+                updateNodeTooltip(nodeId, params.event);
+            }
+        } else {
+            // Clicked on background - hide tooltip
+            clickedNodeId.value = null;
+            hoveredNodeInfo.value = null;
+            tooltipPosition.value = null;
+        }
+    });
+}
+
+// Helper function to get degree color for tooltip badge
+function getDegreeColorForTooltip(degree: number): string {
+    if (degree === 0) {
+        return "#dc2626"; // Red for root
+    } else if (degree === 1) {
+        return "#facc15"; // Yellow for 1st degree
+    } else if (degree === 2) {
+        return "#22c55e"; // Green for 2nd degree
+    } else if (degree === 3) {
+        return "#38bdf8"; // Sky blue for 3rd degree
+    } else if (degree === 4) {
+        return "#a855f7"; // Purple for 4th degree
+    } else {
+        return "#6b7280"; // Gray for 5+ degree
+    }
+}
+
+// Helper function to get ordinal suffix (1st, 2nd, 3rd, etc.)
+function getOrdinalSuffix(num: number): string {
+    const j = num % 10;
+    const k = num % 100;
+    if (j === 1 && k !== 11) return "st";
+    if (j === 2 && k !== 12) return "nd";
+    if (j === 3 && k !== 13) return "rd";
+    return "th";
 }
 
 // Setup constraints to prevent nodes from being dragged outside the viewport
@@ -2112,20 +2397,41 @@ onBeforeUnmount(() => {
     }
 });
 
-// Initialize root node from createForm if available
-watch(
-    () => createForm.root,
-    (newRoot: string) => {
-        if (newRoot) {
-            rootNodeId.value = newRoot;
+
+// Clear all network data when user changes to prevent data leakage
+function clearNetworkData() {
+    // Clear adjacency data
+    adjacency.value = null;
+    nodeLabels.value = {};
+    nodeProfiles.value = {};
+    nodeMetaMap.value = {};
+    rootNodeId.value = null;
+
+    // Destroy network instance
+    if (networkInstance.value) {
+        try {
+            networkInstance.value.destroy();
+        } catch (error) {
+            console.warn("Error destroying network instance:", error);
         }
+        networkInstance.value = null;
     }
-);
+
+    // Clear banner
+    banner.value = null;
+}
 
 // Automatically load network visualization when user is authenticated
+let previousUserId: string | null = auth.userId;
 watch(
     () => auth.userId,
     async (userId: string | null) => {
+        // Clear all data when user changes (including logout)
+        if (previousUserId !== userId) {
+            clearNetworkData();
+            previousUserId = userId;
+        }
+
         if (userId) {
             // Wait for next tick to ensure DOM is ready
             await nextTick();
@@ -2199,6 +2505,7 @@ input[type="hidden"] {
     border-radius: 6px;
     background: #ffffff;
     overflow: hidden;
+    z-index: 1; /* Lower z-index so tooltip can be above */
 }
 
 .network-graph {
@@ -2221,6 +2528,57 @@ input[type="hidden"] {
     font-weight: 500;
     color: #475569;
     font-family: 'Inter', sans-serif;
+}
+
+/* Node info tooltip */
+.node-info-tooltip {
+    position: absolute;
+    z-index: 10000; /* Very high z-index to ensure it's above everything */
+    background: #ffffff;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    padding: 1rem;
+    min-width: 250px;
+    max-width: 350px;
+    pointer-events: auto; /* Enable pointer events so links are clickable */
+    font-size: 0.875rem;
+    line-height: 1.5;
+}
+
+.tooltip-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.tooltip-header strong {
+    font-size: 1rem;
+    color: #0f172a;
+    flex: 1;
+}
+
+.degree-badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #ffffff;
+    white-space: nowrap;
+}
+
+.tooltip-field {
+    margin-bottom: 0.5rem;
+    color: #475569;
+}
+
+.tooltip-field strong {
+    color: #0f172a;
+    margin-right: 0.5rem;
 }
 
 </style>
