@@ -48,3 +48,6 @@ You can download the sample LinkedIn CSV file below to test importing. You can a
 
 ### Features Still in Development and Known Issues
 - [Features Still in Development and Known Issues — Beta](Beta-In-Development-Known-Issues.md)
+
+### User Testing
+[User Testing](UserTesting.md)
