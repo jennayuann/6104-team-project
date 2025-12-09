@@ -12,11 +12,11 @@ RUN pip install --upgrade pip \
 
 COPY . .
 
-# Point to config file  
+# Render automatically sets PORT env var at runtime
 ENV CONFIG=/app/app.yml \
     KMP_DUPLICATE_LIB_OK=TRUE
 
+# Use shell form to expand PORT env var (Render sets this automatically)
 EXPOSE 8001
 
-# Start txtai properly
-CMD ["txtai", "start", "--config", "/app/app.yml"]
+CMD uvicorn txtai.api.application:app --host 0.0.0.0 --port ${PORT:-8001}

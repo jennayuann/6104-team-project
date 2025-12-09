@@ -2,7 +2,11 @@
 
 ## Progress Summary
 
-We have successfully implemented the core backend concepts (UserAuthentication, PublicProfile, MultiSourceNetwork, LinkedInImport, and SemanticSearch) and built a functional frontend that supports most of these features. The graph visualization is working, CSV import with LLM-powered field mapping is functional, and semantic search is integrated. However, several synchronizations and the GraphExplorer backend concept remain to be implemented.
+We have successfully implemented the core backend concepts (UserAuthentication, PublicProfile, MultiSourceNetwork, LinkedInImport, and SemanticSearch) and built a functional frontend that supports most of these features. The graph visualization is working, CSV import with LLM-powered field mapping is functional, and semantic search is integrated.
+
+## Design Changes
+
+We decided that one of our concepts, GraphExplorer, was no longer needed. This is because it was extremely similar to our MultiSourceNetwork concept, where both of them provide ways to view a graph/network.
 
 ---
 
@@ -26,6 +30,16 @@ We have successfully implemented the core backend concepts (UserAuthentication, 
 - ✅ Frontend allows users to create custom nodes with rich metadata (firstName, lastName, headline, location, industry, position, company, skills, education, experience, tags, etc.)
 - ✅ Frontend allows users to create and remove edges between nodes
 - ✅ Graph display is live and supports interactive exploration
+- ✅ Node color-coding by degree of separation (Root: red, 1st: yellow, 2nd: green, 3rd: sky blue, 4th: purple, 5+: gray)
+- ✅ Node dragging with viewport constraints (nodes can't be dragged outside visible area)
+- ✅ Graph panning and zooming (with zoom percentage display)
+- ✅ Center on root node functionality
+- ✅ Node information tooltips (hover and click persistence)
+- ✅ Degree-based node sizing and edge styling
+- ✅ Bidirectional edge rendering
+- ✅ BFS-based degree calculation for shortest path from root
+- ✅ Root node pinning (cannot be dragged)
+
 
 **Status:** ✅ **FULLY COMPLETE**
 
@@ -76,39 +90,6 @@ We have successfully implemented the core backend concepts (UserAuthentication, 
 - ❌ Instagram and Handshake imports (not started)
 
 **Status:** ⚠️ **PARTIALLY COMPLETE** - CSV import working, JSON and OAuth pending
-
----
-
-### Alpha (Graph display): GraphExplorer ⚠️ **FRONTEND ONLY**
-
-**Backend Lead:** Cole Ruehle
-**Frontend Lead:** Jing
-
-**Concept Specification:** See [GraphExplorer Concept Design](design/concepts/GraphExplorer/GraphExplorer.md)
-
-**Completed (Frontend):**
-- ✅ Graph display fully implemented using vis-network library
-- ✅ Interactive graph visualization connected to backend network data
-- ✅ Users can view and explore their imported data from LinkedIn and custom-created nodes/edges
-- ✅ Node color-coding by degree of separation (Root: red, 1st: yellow, 2nd: green, 3rd: sky blue, 4th: purple, 5+: gray)
-- ✅ Node dragging with viewport constraints (nodes can't be dragged outside visible area)
-- ✅ Graph panning and zooming (with zoom percentage display)
-- ✅ Center on root node functionality
-- ✅ Node information tooltips (hover and click persistence)
-- ✅ Degree-based node sizing and edge styling
-- ✅ Bidirectional edge rendering
-- ✅ BFS-based degree calculation for shortest path from root
-- ✅ Root node pinning (cannot be dragged)
-
-**Not Completed (Backend):**
-- ❌ GraphExplorer backend concept not implemented
-- ❌ No persistent graph views storage
-- ❌ No layout persistence (layouts reset on page refresh)
-- ❌ No highlighted paths storage
-- ❌ No backend-managed filters and groupings
-- ❌ No multiple saved graph views per user
-
-**Status:** ⚠️ **FRONTEND COMPLETE, BACKEND NOT IMPLEMENTED**
 
 ---
 
@@ -170,18 +151,11 @@ We have successfully implemented the core backend concepts (UserAuthentication, 
 1. **Public Network Building**
    - ❌ Allow users to add people who are outside their network (not yet implemented)
 
-2. **Graph Explorer Search Integration**
-   - ❌ Display semantic search results directly on the graph (sync missing)
-
-3. **Bug Fixing and Data Normalization**
+2. **Bug Fixing and Data Normalization**
    - ⚠️ Some inconsistencies may exist in node/edge formatting
    - ⚠️ Missing fields handling could be improved
    - ✅ Provenance tracking is working (source tracking per node/edge)
 
-4. **GraphExplorer Backend Concept**
-   - ❌ Backend storage for graph views, layouts, and highlighted paths
-   - ❌ Actions to create, update, and manage graph views
-   - ❌ Integration with search results to automatically create graph views
 
 ---
 
@@ -193,16 +167,8 @@ We have successfully implemented the core backend concepts (UserAuthentication, 
    - `createNetworkForNewProfile` - Auto-create network when profile is created
    - `reindexProfileForSemanticSearch` - Keep search index updated when profiles change
    - `addProfileLinksToNetwork` - Add profile links as network nodes automatically
-   - `searchCreatesGraphView` - Automatically visualize search results
-   - `refinedSearchUpdatesGraphView` - Update graph when search is refined
 
-2. **GraphExplorer Backend Concept**
-   - No persistent graph views
-   - No layout persistence
-   - No highlighted paths storage
-   - No backend-managed filters and groupings
-
-3. **LinkedIn Import Extensions**
+2. **LinkedIn Import Extensions**
    - JSON import format support
    - OAuth-based API import (frontend integration)
 
@@ -252,37 +218,31 @@ We have successfully implemented the core backend concepts (UserAuthentication, 
 | Alpha 1 (Network)    | Ivy            | Jing          | PublicProfile, MultiSourceNetwork   | ✅ Complete |
 | Alpha 2 (Search)     | Jenna          | Jing          | SemanticSearch                      | ✅ Complete |
 | Alpha 3 (Importing)  | Cole Ruehle    | Jing          | MultiSourceNetwork (import flows)   | ⚠️ Partial (CSV done, JSON/OAuth pending) |
-| Beta (Graph display) | Cole Ruehle    | Jing          | GraphExplorer (frontend only)      | ⚠️ Frontend complete, backend missing |
 | Beta (Viz/Polish)    | Cole, Ivy, Jenna | Jing          | UI/UX improvements                  | ⚠️ In progress |
 | Beta (Syncs)         | Cole, Jenna, Ivy | Jing          | Synchronizations                    | ⚠️ 2/7 syncs implemented |
-| Beta (Public Networks) | Ivy          | Jing          | Public network features             | ❌ Not started |
+| Beta (Update MultiiSourceNetwork) | Ivy          | Jing          | Public network features             | ✅ |
 | Beta (Bug Fixing)    | Cole, Jenna, Ivy | Jing          | Bug fixes and improvements          | ⚠️ Ongoing |
 
 ---
 
-## Next Steps (Recommended Priority Order)
+## Next Steps (Priority Order)
 
 1. **Implement Missing Synchronizations** (High Priority)
    - `createNetworkForNewProfile` - Auto-create network when profile is created
    - `reindexProfileForSemanticSearch` - Keep search index updated
    - `searchCreatesGraphView` - Auto-visualize search results
 
-2. **GraphExplorer Backend Concept** (High Priority)
-   - Implement backend storage for graph views, layouts, and highlighted paths
-   - Create actions to manage graph views
-   - Integrate with search results
-
-3. **LinkedIn JSON Import** (Medium Priority)
+2. **LinkedIn JSON Import** (Medium Priority)
    - Implement `importConnectionsFromJSON` action
    - Add JSON file upload support in frontend
 
-4. **UI/UX Polish** (Medium Priority)
+3. **UI/UX Polish** (Medium Priority)
    - Improve form validation and error handling
    - Better empty states and loading indicators
    - Visual design consistency
    - Mobile responsiveness improvements
 
-5. **Advanced Features** (Lower Priority)
+4. **Advanced Features** (Lower Priority)
    - Path highlighting
    - Multiple graph views
    - Education and mutual connections filtering

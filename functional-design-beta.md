@@ -466,81 +466,6 @@ Social media apps for networking don’t help with the problem of finding who I 
 
 ---
 
-### concept: GraphExplorer
-
-* **concept**: GraphExplorer [Viewer, Node]
-* **purpose**: Let a viewer open and adjust an explorable graph view of nodes, including visible nodes, grouping, layout, filters, and optional highlighted paths.
-* **principle**: When a viewer opens a graph view over a set of nodes, they see those nodes laid out, can adjust filters and groupings, and optionally highlight a path.
-
-* **state**:
-    * a set of `GraphViews` with
-        * `viewID` String
-        * `viewer` Viewer
-        * `visibleNodes` set of Node
-        * `anchorNode` Node?
-        * `filters` JSON?
-
-    * a set of `Layouts` with
-        * `viewID` String
-        * `node` Node
-        * `x` Number
-        * `y` Number
-        * `groupID` String?
-
-    * a set of `HighlightedPaths` with
-        * `viewID` String
-        * `nodes` seq of Node
-
-* **actions**:
-
-    * `createGraphView (viewer: Viewer, visibleNodes: set of Node, anchorNode: Node?, filters: JSON?): (viewID: String)`
-        * **requires**:
-            * None
-        * **effects**:
-            * Creates a graph view and initial layouts.
-
-    * `updateVisibleNodes (viewID: String, visibleNodes: set of Node): Empty`
-        * **requires**:
-            * None
-        * **effects**:
-            * Updates visible nodes and corresponding layouts.
-
-    * `updateLayouts (viewID: String, layouts: seq of { node: Node, x: Number, y: Number, groupID: String? }): Empty`
-        * **requires**:
-            * None
-        * **effects**:
-            * Updates layout for each node.
-
-    * `setFilters (viewID: String, filters: JSON): Empty`
-        * **requires**:
-            * None
-        * **effects**:
-            * Updates filters.
-
-    * `setAnchorNode (viewID: String, anchorNode: Node): Empty`
-        * **requires**:
-            * None
-        * **effects**:
-            * Sets anchor node.
-
-    * `setHighlightedPath (viewID: String, nodes: seq of Node): Empty`
-        * **requires**:
-            * None
-        * **effects**:
-            * Creates or updates highlighted path.
-
-    * `clearHighlightedPath (viewID: String): Empty`
-        * **requires**:
-            * None
-        * **effects**:
-            * Removes highlighted path.
-
-   **notes**
-   * `anchorNode` is the node that the viewer wants the visualization to center around, which may be used for focus, zooming, or computing contextual relationships.
-   * `Layouts` store the visual placement of nodes for a specific graph view. Each layout entry records the x/y position and optional group assignment for a node, allowing the concept to preserve or update how the viewer’s graph is arranged.
-
----
-
 ## Syncs
 
 **sync** createNetworkForNewProfile
@@ -580,40 +505,16 @@ Social media apps for networking don’t help with the problem of finding who I 
 
 ---
 
-**sync** searchCreatesGraphView
-
-**when**
-- SemanticSearch.queryItems (owner, queryText, filters) : (queryID)
-
-**then**
-- GraphExplorer.createGraphView (viewer: owner, visibleNodes: resultItems)
-
----
-
-**sync** refinedSearchUpdatesGraphView
-
-**when**
-- SemanticSearch.refineQuery (queryID, filters)
-
-**where**
-- in SemanticSearch: get updated resultItems for queryID
-- in SearchMapping: find GraphView associated with queryID
-
-**then**
-- GraphExplorer.updateVisibleNodes (viewID, resultItems)
-
----
-
 **sync** addLinkedInConnectionToNetwork
 
 **when**
-- LinkedInImport.addConnection (account, linkedInConnectionId, ...) : (connection)
+- LinkedInImport.importConnectionsFromCSV (account, csvContent): (importJob, connectionsImported)
 
 **where**
 - in LinkedInImport: get user (owner) from account
 
 **then**
-- MultiSourceNetwork.addNodeToNetwork (owner: user, node: connection, source: "linkedin")
+- MultiSourceNetwork.addOrMigrateNodeFromSource ({ owner, legacyNodeId?, source, nodeMeta?, externalId? }): { node }
 
 <br>
 
@@ -655,9 +556,9 @@ A user is looking to get into sports analytics. It's often best to get a startin
 
 # Design Summary
 
-The four core concepts—PublicProfile, MultiSourceNetwork, SemanticSearch, and GraphExplorer—work together and turns disparate social connections into a unified, queryable, explorable knowledge graph. PublicProfile establishes the user’s identity and structured information. MultiSourceNetwork merges imported connections from multiple platforms into a single source-aware graph, protecting privacy, preserving origin of the imported connections, and enabling flexible updates. SemanticSearch indexes profile and network data so that algorithm queries can surface relevant people across all imported platforms. GraphExplorer then visualizes the search results or the full network, allowing rich exploration, filtering, and understanding of how each connection relates to the user. The provided syncs coordinate these concepts so that profile updates reindex automatically, search results automatically create graph views, refinements dynamically update the visualization, and altogether keeps every update made by different users visible another. This ecosystem enables users to discover who in their network is relevant for hiring, learning, or introductions without manually browsing lists or remembering names.
+The four core concepts—PublicProfile, MultiSourceNetwork, and SemanticSearch—work together and turns disparate social connections into a unified, queryable, explorable knowledge graph. PublicProfile establishes the user’s identity and structured information. MultiSourceNetwork merges imported connections from multiple platforms into a single source-aware graph, protecting privacy, preserving origin of the imported connections, and enabling flexible updates. It would allow for visualization of search results or the full network, allowing rich exploration, filtering, and understanding of how each connection relates to the user. SemanticSearch indexes profile and network data so that algorithm queries can surface relevant people across all imported platforms.  The provided syncs coordinate these concepts so that profile updates reindex automatically, refinements dynamically update the visualization, and altogether keeps every update made by different users visible another. This ecosystem enables users to discover who in their network is relevant for hiring, learning, or introductions without manually browsing lists or remembering names.
 
-The design directly incorporates privacy, consent, visibility control, and data provenance into its conceptual structure. PublicProfile gives users explicit control over what information is displayed publicly, while MultiSourceNetwork only imports public data and keeps track of which platform each piece of information came from. This ensures users can dispute or restrict how they appear in others’ networks without exposing private data. The semantic search and graph views operate exclusively on indexed items that users have chosen to make public or have explicitly imported, reducing coercive pressure to overshare. The visibility system proposed in the ethics assessment fits naturally into the PublicProfile attributes and the GraphExplorer filtering model, allowing selective disclosure. Additionally, MultiSourceNetwork supports automatic removal of nodes when their source data disappears, respecting non-users’ desire not to participate. Together, these mechanisms address privacy/consent concerns while still enabling meaningful network discovery.
+The design directly incorporates privacy, consent, visibility control, and data provenance into its conceptual structure. PublicProfile gives users explicit control over what information is displayed publicly, while MultiSourceNetwork only imports public data and keeps track of which platform each piece of information came from. This ensures users can dispute or restrict how they appear in others’ networks without exposing private data. The semantic search operate exclusively on indexed items that users have chosen to make public or have explicitly imported, reducing coercive pressure to overshare. The visibility system proposed in the ethics assessment fits naturally into the PublicProfile attributes, allowing selective disclosure. Additionally, MultiSourceNetwork supports automatic removal of nodes when their source data disappears, respecting non-users’ desire not to participate. Together, these mechanisms address privacy/consent concerns while still enabling meaningful network discovery.
 
 **Remaining Issues:**
 
@@ -721,55 +622,24 @@ The development plan is structured to align directly with the milestone phases a
 
 ---
 
-### Beta (Graph display): GraphExplorer, Final Integration
-
-**Backend Lead:** Cole Ruehle
-**Frontend Lead:** Jing
-
-**Goals:**
-- Deliver the core graph visualization experience (navigation, filtering, live updates).
-- Implement backend services for automatic layout/clustering; integrate these with the UI.
-
-**Key Features:**
-- Interactive graph navigation in frontend.
-- Filtering, exploring paths, and understanding multi-source connections.
-- Backend support for auto-layout and network clustering.
-
----
-
-### Beta (Viz/Polish): GraphExplorer, Final Integration
-
-**Backend Lead:** TBD
-**Frontend Lead:** TBD
-
-**Goals:**
-- Polish graph UI/UX, finalize visual clustering and filtering.
-- Refine all syncs: ensure backend/frontend consistency, optimize performance.
-- Incorporate user feedback and ready the product for broader testing.
-
-**Key Features:**
-- Enhanced interactivity, tooltips, and graph exploration UI improvements.
-- Robust sync from backend updates to frontend views.
-- Usability fixes and polish.
-
----
-
 ### Summary Table of Team Responsibilities
 
-| Phase                | Backend Lead    | Frontend Lead | Focused Concept(s)                 |
-|----------------------|----------------|---------------|-------------------------------------|
-| Alpha 1 (Network)    | Ivy            | Jing          | PublicProfile, MultiSourceNetwork   |
-| Alpha 2 (Search)     | Jenna          | Jing          | SemanticSearch                      |
-| Alpha 3 (Importing)  | Cole Ruehle    | Jing          | MultiSourceNetwork (import flows)   |
-| Beta (Graph display)    | Cole Ruehle          | Jing          | GraphExplorer, Final Integration    |
-| Beta (Viz/Polish)    | Everybody          | Jing         | GraphExplorer, Final Integration    |
+
+| Phase                | Backend Lead    | Frontend Lead | Focused Concept(s)                 
+|----------------------|----------------|---------------|-------------------------------------
+| Alpha 1 (Network)    | Ivy            | Jing          | PublicProfile, MultiSourceNetwork    
+| Alpha 2 (Search)     | Jenna          | Jing          | SemanticSearch                      
+| Alpha 3 (Importing)  | Cole Ruehle    | Jing          | MultiSourceNetwork (import flows)   
+| Beta (Viz/Polish)    | Cole, Ivy, Jenna | Jing          | UI/UX improvements                 
+| Beta (Syncs)         | Cole, Jenna, Ivy | Jing          | Synchronizations                    
+| Beta (Update MultiiSourceNetwork) | Ivy          | Jing          | Public network features      
+| Beta (Bug Fixing)    | Cole, Jenna, Ivy | Jing          | Bug fixes and improvements          
 
 ---
 
 ### **Key Integration Points with Concepts:**
 - Each API and backend implementation ties directly to the corresponding concept’s actions/state (e.g., profile CRUD reflects `PublicProfile` actions, all network mutations support dynamic sources per `MultiSourceNetwork`).
 - Semantic search and indexing are coupled tightly with network/profile updates: profile changes re-index, importing triggers new indexing, search results automatically link to visualization (as described in syncs).
-- Visual clustering and graph exploration APIs/services parallel the `GraphExplorer` concept, providing a data model and UI that supports filtering, highlighting paths, and dynamic layouts.
 
 ---
 
