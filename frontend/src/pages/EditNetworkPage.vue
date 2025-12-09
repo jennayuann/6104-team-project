@@ -6,6 +6,10 @@
                 <i class="fa-solid fa-plus"></i>
                 Add Connection
             </button>
+            <button @click="showImportModal = true" class="action-btn">
+                <i class="fa-solid fa-file-import"></i>
+                Import
+            </button>
             <button
                 @click="handleEditSelected"
                 class="action-btn"
@@ -97,6 +101,17 @@
             @close="showAddModal = false"
             @success="handleConnectionAdded"
         />
+        <EditConnectionModal
+            v-if="showEditModal && selectedConnectionId"
+            :nodeId="selectedConnectionId"
+            @close="showEditModal = false"
+            @success="handleConnectionAdded"
+        />
+        <ImportModal
+            v-if="showImportModal"
+            @close="showImportModal = false"
+            @success="handleConnectionAdded"
+        />
     </div>
 </template>
 
@@ -114,6 +129,8 @@ import { useAuthStore } from "@/stores/useAuthStore";
 import { useAvatarStore } from "@/stores/useAvatarStore";
 import NetworkStatistics from "@/components/NetworkStatistics.vue";
 import AddConnectionModal from "@/components/AddConnectionModal.vue";
+import EditConnectionModal from "@/components/EditConnectionModal.vue";
+import ImportModal from "@/components/ImportModal.vue";
 
 const auth = useAuthStore();
 const avatarStore = useAvatarStore();
@@ -123,6 +140,8 @@ const loading = ref(true);
 const adjacency = ref<AdjacencyMap | null>(null);
 const selectedConnectionId = ref<string | null>(null);
 const showAddModal = ref(false);
+const showEditModal = ref(false);
+const showImportModal = ref(false);
 
 // Data
 const networkMembers = ref<
@@ -172,8 +191,7 @@ function handleImageError(event: Event) {
 
 function handleEditSelected() {
     if (!selectedConnectionId.value) return;
-    // TODO: Implement edit modal
-    alert("Edit functionality coming soon!");
+    showEditModal.value = true;
 }
 
 async function handleRemoveSelected() {
@@ -201,8 +219,18 @@ async function handleRemoveSelected() {
     }
 }
 
-function handleConnectionAdded() {
-    loadNetworkData();
+async function handleConnectionAdded() {
+    selectedConnectionId.value = null;
+    console.log("[EditNetworkPage] Connection added, refreshing network data...");
+    try {
+        // Small delay to ensure backend has fully persisted the data
+        await new Promise(resolve => setTimeout(resolve, 300));
+        await loadNetworkData();
+        console.log("[EditNetworkPage] Network data refreshed successfully. Members:", networkMembers.value.length);
+    } catch (error) {
+        console.error("[EditNetworkPage] Error refreshing network data:", error);
+        alert("Connection was added, but there was an error refreshing the view. Please refresh the page.");
+    }
 }
 
 function getInitials(text: string): string {
@@ -341,6 +369,8 @@ async function loadNetworkData() {
         // Exclude the current user from the list
         allNodeIds.delete(auth.userId);
 
+        console.log("[EditNetworkPage] Found node IDs in adjacency:", Array.from(allNodeIds));
+
         if (allNodeIds.size === 0) {
             networkMembers.value = [];
             loading.value = false;
@@ -352,6 +382,7 @@ async function loadNetworkData() {
                 ids: Array.from(allNodeIds),
                 owner: auth.userId,
             });
+            console.log("[EditNetworkPage] getNodes returned:", nodeDocs?.length || 0, "nodes");
             (nodeDocs || []).forEach((nd: Record<string, any>) => {
                 const id = nd._id as string;
                 if (!id) return;
@@ -371,7 +402,7 @@ async function loadNetworkData() {
                 };
             });
         } catch (e) {
-            console.warn("getNodes failed:", e);
+            console.warn("[EditNetworkPage] getNodes failed:", e);
         }
 
         await fetchNodeProfiles(Array.from(allNodeIds));
@@ -386,6 +417,7 @@ async function loadNetworkData() {
             sources: string[];
         }> = [];
 
+        console.log("[EditNetworkPage] Building member list for", allNodeIds.size, "nodes");
         for (const nodeId of allNodeIds) {
             const linkedInConn = linkedInConnections.value[nodeId];
 
@@ -470,8 +502,9 @@ async function loadNetworkData() {
         }
 
         networkMembers.value = members;
+        console.log("[EditNetworkPage] Final member count:", members.length);
     } catch (error) {
-        console.error("Error loading network data:", error);
+        console.error("[EditNetworkPage] Error loading network data:", error);
         networkMembers.value = [];
     } finally {
         loading.value = false;
