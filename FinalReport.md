@@ -8,6 +8,10 @@
 
 ### Disambiguation of Mutliple Users
 
+This is one concept that we discuseed (more a feature) we determined through meetings with our TA and amoung ourselves that it may not have been critical to the functionality and purpose of our project. Therefore it was deprioritized. Additionally the user flow was the main reason we changed the design of this function. In teh case you add 600 people the balance between allowing the user to undersatnd the matching that is going on and itntervene in the case of a problem while not bothering them too much is difficult. With intelligent matching the question is a complex one. "Are these 2 bits of data representative of the same people?" It is complex and messing it up can greatly hurt one user's experience and also the privacy of another user. Since this would allow a user to connect to and view data of a person someone else added. 
+
+In researching similar solutions we saw 2 options: Complex algorithms that are trained for the purpose of disambiguation specifically, and a simple rule based system that is accountable and easy to undedrstand. The best mix for us is a simple rule based system which lets us be confident in the disambiguation and no have to require user input to make it happen. Therefore we implemented this system fo rlinked in imports only and match based on the unique profile url. This simple rule enables the connection we discussed without complicating profiles or user flows. 
+
 ### Ethics of importing
 Our original plan was to use a system similar to those commercially available online, which scrape profile information on a per-profile basis (e.g., profile_id → information). However, despite these sources existing, many are vague about how they accomplish this. Upon reviewing the LinkedIn API, we discovered that a change was made around six years ago to limit the amount of information accessible through standard means. This is because LinkedIn decided to monetize access to this data, making it available only to their corporate partners—requiring negotiation of a hefty payment package. Despite these factors, it is clearly still possible to get information from LinkedIn, and since LinkedIn still permits it (for a price), the use of that data is not inherently unethical. However, after this research, it became clear that knowingly subverting the explicit changes LinkedIn has made would be unethical.
 
@@ -28,3 +32,9 @@ A critical aspect of an end design that I think is really important that we lear
 ## Reflections
 
 ### Cole
+
+I learned a lot about the importance of understanding and planning user journeys, and how crucial it is to communicate this clearly and develop a shared understanding within the group about how to approach the front end. We received the most feedback from a user and our TA regarding the user journey, especially the naming and functionality of the frontend. This led to a night and day difference in feedback before and after we discussed these issues and created new frontend components.
+
+I also saw the benefit of having clearly defined and distinct concepts well specified at the start of implementation. As we made frontend changes, we were able to iterate and test rapidly since the backend components were distinct and well defined. Compared to my experience on the first project, I was much more able to quickly and efficiently modify both frontend and backend components after conceptualizing the main components of our backend as concepts, distinct from the frontend pages.
+
+Additionally, I learned a lot about the ethics of implementing projects using other people's data. It is a complex area with no firm rules, and the compromises and discussions around how to do this responsibly are thought-provoking. I realized that one of the main impediments to implementing your ideas is having an innate knowledge of the moral reasoning and norms in an area and making sure what you are doing fits within them.
