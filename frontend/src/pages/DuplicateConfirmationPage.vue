@@ -3,15 +3,15 @@
     <section class="header card">
       <h2 style="margin-top: 0">Review Potential Duplicates</h2>
       <p class="muted">
-        This page helps you review potential duplicate individuals in your network. 
-        <strong>When you click "Compare Connections Now"</strong>, it compares your newly imported LinkedIn connections 
-        to existing nodes in your network using AI. High confidence matches (≥85% similarity) are 
-        automatically merged. Only medium confidence matches are shown here for your review (low confidence 
+        This page helps you review potential duplicate individuals in your network.
+        <strong>When you click "Compare Connections Now"</strong>, it compares your newly imported LinkedIn connections
+        to existing nodes in your network using AI. High confidence matches (≥85% similarity) are
+        automatically merged. Only medium confidence matches are shown here for your review (low confidence
         matches are not similar enough to be worth reviewing).
       </p>
       <div v-if="!loading && comparisons.length === 0" style="margin-top: 1rem;">
-        <button 
-          type="button" 
+        <button
+          type="button"
           class="btn-refresh"
           @click="loadComparisons"
           :disabled="loading"
@@ -164,6 +164,7 @@ import {
   PublicProfileAPI,
   ConceptApiError,
   type Comparison,
+  type AdjacencyMap,
 } from "@/services/conceptClient";
 import { useAuthStore } from "@/stores/useAuthStore";
 
@@ -193,11 +194,11 @@ function stringSimilarity(str1: string, str2: string): number {
   const s1 = str1.toLowerCase().trim();
   const s2 = str2.toLowerCase().trim();
   if (s1 === s2) return 1;
-  
+
   const len1 = s1.length;
   const len2 = s2.length;
   if (len1 === 0 || len2 === 0) return 0;
-  
+
   // Levenshtein distance
   const matrix: number[][] = [];
   for (let i = 0; i <= len2; i++) {
@@ -206,7 +207,7 @@ function stringSimilarity(str1: string, str2: string): number {
   for (let j = 0; j <= len1; j++) {
     matrix[0][j] = j;
   }
-  
+
   for (let i = 1; i <= len2; i++) {
     for (let j = 1; j <= len1; j++) {
       if (s2.charAt(i - 1) === s1.charAt(j - 1)) {
@@ -220,7 +221,7 @@ function stringSimilarity(str1: string, str2: string): number {
       }
     }
   }
-  
+
   const distance = matrix[len2][len1];
   const maxLen = Math.max(len1, len2);
   return 1 - (distance / maxLen);
@@ -237,32 +238,32 @@ function hasStringSimilarity(
   // Compare names
   const name1 = getNodeName(node1Info);
   const name2 = getNodeName(node2Info);
-  
+
   if (name1 && name2) {
     const nameSim = stringSimilarity(name1, name2);
     if (nameSim > 0.3) return true; // 30% name similarity threshold
   }
-  
+
   // Compare first names
   const fn1 = (node1Info.firstName as string)?.toLowerCase().trim() || "";
   const fn2 = (node2Info.firstName as string)?.toLowerCase().trim() || "";
   if (fn1 && fn2 && stringSimilarity(fn1, fn2) > 0.5) return true;
-  
+
   // Compare last names
   const ln1 = (node1Info.lastName as string)?.toLowerCase().trim() || "";
   const ln2 = (node2Info.lastName as string)?.toLowerCase().trim() || "";
   if (ln1 && ln2 && stringSimilarity(ln1, ln2) > 0.5) return true;
-  
+
   // Compare companies
   const comp1 = (node1Info.currentCompany as string)?.toLowerCase().trim() || "";
   const comp2 = (node2Info.currentCompany as string)?.toLowerCase().trim() || "";
   if (comp1 && comp2 && stringSimilarity(comp1, comp2) > 0.6) return true;
-  
+
   // Compare locations
   const loc1 = (node1Info.location as string)?.toLowerCase().trim() || "";
   const loc2 = (node2Info.location as string)?.toLowerCase().trim() || "";
   if (loc1 && loc2 && stringSimilarity(loc1, loc2) > 0.6) return true;
-  
+
   return false;
 }
 
@@ -276,13 +277,13 @@ async function getNodeInfo(nodeId: string): Promise<Record<string, unknown> | nu
       const accounts = await LinkedInImportAPI.getLinkedInAccount({
         user: auth.userId!,
       });
-      
+
       if (accounts.length > 0) {
         const connections = await LinkedInImportAPI.getConnections({
           account: accounts[0]._id,
         });
         const connection = connections.find((c) => c._id === nodeId);
-        
+
         if (connection) {
           return {
             firstName: connection.firstName,
@@ -333,6 +334,9 @@ async function loadComparisons() {
   loading.value = true;
   banner.value = null;
 
+  // Declare at function scope so it's available in catch block
+  const existingComparisonsMap = new Map<string, Comparison>();
+
   try {
     if (!auth.userId) {
       throw new Error("Not authenticated");
@@ -359,29 +363,42 @@ async function loadComparisons() {
         message: `Warning: Could not load existing comparisons: ${errorMsg}. Will try to create new ones.`,
       };
     }
-    
-    const existingComparisons = new Map<string, Comparison>();
+
     for (const comp of pending) {
-      existingComparisons.set(comp._id, comp);
+      existingComparisonsMap.set(comp._id, comp);
     }
-    
+
     // Show existing comparisons immediately
-    comparisons.value = Array.from(existingComparisons.values());
+    comparisons.value = Array.from(existingComparisonsMap.values());
 
     // Get all nodes in the network
     let networkNodes: string[] = [];
     try {
       console.log("[DuplicateConfirmation] Loading network nodes...");
-      const adjacency = await MultiSourceNetworkAPI.getAdjacencyArray({
+      const adjacencyData = await MultiSourceNetworkAPI.getAdjacencyArray({
         owner: auth.userId,
       });
-      console.log("[DuplicateConfirmation] Got adjacency data:", adjacency);
-      networkNodes = Object.keys(adjacency);
-      
+      console.log("[DuplicateConfirmation] Got adjacency data:", adjacencyData);
+
+      // Handle both AdjacencyMap and AdjacencyResponse types
+      let adjacencyMap: AdjacencyMap;
+      if ("adjacency" in adjacencyData) {
+        const adj = adjacencyData.adjacency;
+        if (adj && typeof adj === "object" && !Array.isArray(adj)) {
+          adjacencyMap = adj;
+        } else {
+          adjacencyMap = {};
+        }
+      } else {
+        adjacencyMap = adjacencyData as AdjacencyMap;
+      }
+
+      networkNodes = Object.keys(adjacencyMap);
+
       // Also collect target nodes from edges
       const allNodeIds = new Set<string>(networkNodes);
       for (const nodeId of networkNodes) {
-        const edges = adjacency[nodeId] || [];
+        const edges = adjacencyMap[nodeId] || [];
         for (const edge of edges) {
           allNodeIds.add(edge.to);
         }
@@ -414,14 +431,14 @@ async function loadComparisons() {
         const linkedInConnections = await LinkedInImportAPI.getConnections({
           account: accounts[0]._id,
         });
-        connections = linkedInConnections;
+        connections = linkedInConnections.map(conn => ({ ...conn, _id: conn._id }));
       }
     } catch (e) {
       console.log("[DuplicateConfirmation] No LinkedIn connections found:", e);
     }
 
     if (networkNodes.length < 2 && connections.length === 0) {
-      comparisons.value = Array.from(existingComparisons.values());
+      comparisons.value = Array.from(existingComparisonsMap.values());
       loading.value = false;
       banner.value = {
         type: "success",
@@ -436,11 +453,11 @@ async function loadComparisons() {
     const existingNodeIds = networkNodes.filter(nodeId => !connectionIds.has(nodeId));
 
     if (connections.length === 0 || existingNodeIds.length === 0) {
-      comparisons.value = Array.from(existingComparisons.values());
+      comparisons.value = Array.from(existingComparisonsMap.values());
       loading.value = false;
       banner.value = {
         type: "success",
-        message: connections.length === 0 
+        message: connections.length === 0
           ? "No connections to compare. Import LinkedIn connections first."
           : "No existing nodes to compare against.",
       };
@@ -450,7 +467,6 @@ async function loadComparisons() {
     const newComparisons: Comparison[] = [];
     const startTime = Date.now();
     let completedCount = 0;
-    let llmCallCount = 0;
 
     // Compare each connection to each existing node
     // Limit to first 50 connections to avoid taking forever
@@ -464,11 +480,11 @@ async function loadComparisons() {
 
     // Limit existing nodes to compare against (first 100 to avoid too many comparisons)
     const nodesToCompare = existingNodeIds.slice(0, 100);
-    
+
     // Step 1: Batch fetch all node info upfront (much faster than fetching one by one)
     loadingMessage.value = "Loading node information...";
     const nodeInfoCache = new Map<string, Record<string, unknown>>();
-    
+
     // Fetch node info in parallel batches
     const BATCH_SIZE = 20;
     for (let i = 0; i < nodesToCompare.length; i += BATCH_SIZE) {
@@ -520,7 +536,7 @@ async function loadComparisons() {
 
         // Get cached node info
         const node2Info = nodeInfoCache.get(existingNodeId);
-        
+
         // Only proceed if we have info for both nodes
         if (node2Info) {
           // Pre-filter: Only add to candidates if there's string similarity
@@ -543,7 +559,7 @@ async function loadComparisons() {
     const COMPARISON_BATCH_SIZE = 10;
     for (let i = 0; i < candidatePairs.length; i += COMPARISON_BATCH_SIZE) {
       const batch = candidatePairs.slice(i, i + COMPARISON_BATCH_SIZE);
-      
+
       const batchPromises = batch.map(async (pair) => {
         try {
           const result = await LLMDisambiguationAPI.compareNodes({
@@ -580,18 +596,18 @@ async function loadComparisons() {
       });
 
       const batchResults = await Promise.all(batchPromises);
-      const validComparisons = batchResults.filter((comp): comp is Comparison => comp !== null);
-      
+      const validComparisons = batchResults.filter((comp: Comparison | null): comp is Comparison => comp !== null);
+
       // Add valid comparisons
       for (const comp of validComparisons) {
         if (!newComparisons.find(c => c._id === comp._id)) {
           newComparisons.push(comp);
         }
       }
-      
+
       completedCount += batch.length;
       comparisonProgress.value = `Created ${completedCount} of ${totalCandidates} comparisons...`;
-      
+
       // Update UI incrementally
       comparisons.value = [...comparisons.value, ...validComparisons];
     }
@@ -599,14 +615,14 @@ async function loadComparisons() {
     // Merge with existing comparisons (already added incrementally above)
     // Remove duplicates
     const seenIds = new Set<string>();
-    comparisons.value = comparisons.value.filter(comp => {
+    comparisons.value = comparisons.value.filter((comp: Comparison) => {
       if (seenIds.has(comp._id)) return false;
       seenIds.add(comp._id);
       return true;
     });
 
     // Filter out comparisons that are clearly different (don't need user review)
-    comparisons.value = comparisons.value.filter((comp) => {
+    comparisons.value = comparisons.value.filter((comp: Comparison) => {
       // Show all unanalyzed comparisons (user can analyze them)
       if (comp.llmSimilarityScore === undefined) {
         return true;
@@ -649,7 +665,7 @@ async function loadComparisons() {
     });
 
     // Sort by: analyzed first (with similarity score), then by creation date
-    comparisons.value.sort((a, b) => {
+    comparisons.value.sort((a: Comparison, b: Comparison) => {
       const aHasAnalysis = a.llmSimilarityScore !== undefined;
       const bHasAnalysis = b.llmSimilarityScore !== undefined;
       if (aHasAnalysis && !bHasAnalysis) return -1;
@@ -662,17 +678,17 @@ async function loadComparisons() {
     });
 
     const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
-    const analyzedCount = comparisons.value.filter(c => c.llmSimilarityScore !== undefined).length;
+    const analyzedCount = comparisons.value.filter((c: Comparison) => c.llmSimilarityScore !== undefined).length;
     banner.value = {
       type: "success",
       message: `Completed in ${totalTime}s. Found ${comparisons.value.length} potential matches requiring review (${analyzedCount} analyzed, ${comparisons.value.length - analyzedCount} pending analysis).`,
     };
   } catch (error) {
     console.error("[DuplicateConfirmation] Error loading comparisons:", error);
-    const errorDetails = error instanceof ConceptApiError 
+    const errorDetails = error instanceof ConceptApiError
       ? `${error.message}${error.status ? ` (Status: ${error.status})` : ''}`
-      : error instanceof Error 
-        ? error.message 
+      : error instanceof Error
+        ? error.message
         : String(error);
     console.error("[DuplicateConfirmation] Full error:", error);
     banner.value = {
@@ -680,7 +696,9 @@ async function loadComparisons() {
       message: `Failed to load comparisons: ${errorDetails}. Please check the console for details.`,
     };
     // Still show existing comparisons if we have any
-    comparisons.value = Array.from(existingComparisons.values());
+    if (existingComparisonsMap.size > 0) {
+      comparisons.value = Array.from(existingComparisonsMap.values());
+    }
   } finally {
     loading.value = false;
   }
@@ -700,7 +718,7 @@ async function handleConfirm(comparison: Comparison, decision: "same" | "differe
     if (decision === "same") {
       // Determine which node to keep (prefer node2 as the existing one)
       const keepNode = comparison.node2;
-      
+
       await LLMDisambiguationAPI.mergeNodes({
         comparison: comparison._id,
         keepNode,
@@ -772,7 +790,7 @@ async function handleAnalyze(comparison: Comparison) {
 
     if (updated) {
       // Update the comparison in the list
-      const index = comparisons.value.findIndex(c => c._id === comparison._id);
+      const index = comparisons.value.findIndex((c: Comparison) => c._id === comparison._id);
       if (index !== -1) {
         comparisons.value[index] = updated;
       }
@@ -780,14 +798,14 @@ async function handleAnalyze(comparison: Comparison) {
       // If the analysis shows they're clearly different, remove it from the list
       const similarity = updated.llmSimilarityScore || 0;
       const confidence = updated.llmConfidence;
-      
+
       if (
         (confidence === "high" && similarity < 0.3) ||
         (confidence === "low" && similarity < 0.2) ||
         (confidence === "high" && similarity >= 0.85) // Auto-merged
       ) {
         // Remove from list - clearly different or auto-merged
-        comparisons.value = comparisons.value.filter(c => c._id !== comparison._id);
+        comparisons.value = comparisons.value.filter((c: Comparison) => c._id !== comparison._id);
         banner.value = {
           type: "success",
           message: "Analysis complete. These nodes are clearly different (or already merged), so they've been removed from the review list.",
@@ -850,7 +868,7 @@ async function handleCancel(comparison: Comparison) {
 onMounted(async () => {
   loading.value = true;
   loadingMessage.value = "Loading existing comparisons...";
-  
+
   try {
     if (!auth.userId) {
       throw new Error("Not authenticated");
@@ -858,9 +876,9 @@ onMounted(async () => {
 
     // Load all existing pending comparisons and filter out clearly different ones
     const pending = await LLMDisambiguationAPI.getPendingComparisons();
-    
+
     // Filter out comparisons that are clearly different (don't need user review)
-    comparisons.value = pending.filter((comp) => {
+    comparisons.value = pending.filter((comp: Comparison) => {
       // Show all unanalyzed comparisons (user can analyze them)
       if (comp.llmSimilarityScore === undefined) {
         return true;
@@ -901,9 +919,9 @@ onMounted(async () => {
 
       return false; // Default: don't show
     });
-    
+
     loading.value = false;
-    
+
     if (pending.length === 0) {
       banner.value = {
         type: "success",
@@ -920,8 +938,8 @@ onMounted(async () => {
     loading.value = false;
     banner.value = {
       type: "error",
-      message: error instanceof ConceptApiError 
-        ? error.message 
+      message: error instanceof ConceptApiError
+        ? error.message
         : "Failed to load comparisons. Please try again.",
     };
   }
@@ -1151,4 +1169,3 @@ onMounted(async () => {
   }
 }
 </style>
-

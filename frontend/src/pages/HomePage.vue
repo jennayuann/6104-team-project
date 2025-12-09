@@ -940,7 +940,6 @@ async function performSemanticSearch() {
                 }
 
                 const conn = linkedInConnections.value[connectionId];
-                const prof = nodeProfiles.value[connectionId];
 
                 let displayName: string;
                 let avatarUrl: string;

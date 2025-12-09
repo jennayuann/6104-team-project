@@ -648,7 +648,6 @@ const adjacency = ref<AdjacencyMap | null>(null);
 const selectedProfileId = ref<string | null>(null);
 const isEditing = ref(false);
 const saving = ref(false);
-const isDragging = ref(false);
 const uploadError = ref("");
 const fileInput = ref<HTMLInputElement | null>(null);
 const editForm = ref({
@@ -1241,28 +1240,7 @@ function triggerFilePicker() {
     fileInput.value?.click();
 }
 
-function handleDragOver(event: DragEvent) {
-    isDragging.value = true;
-    event.preventDefault();
-}
-
-function handleDragLeave(event: DragEvent) {
-    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-    const x = event.clientX;
-    const y = event.clientY;
-
-    if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
-        isDragging.value = false;
-    }
-}
-
-function handleDrop(event: DragEvent) {
-    isDragging.value = false;
-    const files = event.dataTransfer?.files;
-    if (files && files.length > 0) {
-        processFile(files[0]);
-    }
-}
+// Drag and drop handlers removed - not used in this component
 
 function handleFileChange(event: Event) {
     const target = event.target as HTMLInputElement;
@@ -1303,13 +1281,7 @@ function processFile(file: File) {
     reader.readAsDataURL(file);
 }
 
-function removeImage() {
-    editForm.value.profilePictureUrl = "";
-    uploadError.value = "";
-    if (fileInput.value) {
-        fileInput.value.value = "";
-    }
-}
+// removeImage function removed - not used in this component
 
 async function saveProfile() {
     if (!selectedProfileId.value) return;

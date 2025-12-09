@@ -87,7 +87,9 @@ const totalConnections = computed(() => {
         }
     }
     // Exclude the current user
-    allNodeIds.delete(auth.userId);
+    if (auth.userId) {
+      allNodeIds.delete(auth.userId);
+    }
     return allNodeIds.size;
 });
 
@@ -273,11 +275,13 @@ function handleExportCSV() {
         const allNodeIds = new Set<string>(Object.keys(data));
         for (const nodeId of Object.keys(data)) {
             const edges = data[nodeId] || [];
-            for (const edge of edges) {
-                allNodeIds.add(edge.to);
-            }
+        for (const edge of edges) {
+            allNodeIds.add(edge.to);
         }
+    }
+    if (auth.userId) {
         allNodeIds.delete(auth.userId);
+    }
 
         // Collect all connection data
         const rows: any[] = [];
@@ -609,4 +613,3 @@ onMounted(() => {
     flex-shrink: 0;
 }
 </style>
-
