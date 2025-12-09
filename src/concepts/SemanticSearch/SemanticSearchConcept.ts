@@ -1,4 +1,5 @@
 import { Collection, Db } from "npm:mongodb";
+import { GoogleGenerativeAI } from "npm:@google/generative-ai";
 import { Empty, ID } from "@utils/types.ts";
 
 const PREFIX = "SemanticSearch.";
@@ -22,78 +23,219 @@ interface SearchQueries {
   resultItems: Item[];
 }
 
-const SEMANTIC_SERVICE_URL = Deno.env.get("SEMANTIC_SERVICE_URL") ??
-  "http://localhost:8001";
+const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+const GEMINI_MODEL = Deno.env.get("GEMINI_MODEL") ?? "gemini-1.5-flash";
+const GEMINI_LOG_RAW = Deno.env.get("GEMINI_LOG_RAW") === "1";
+const MAX_CANDIDATES = 50;
+const MAX_OUTPUT_TOKENS = 256;
+const BATCH_PROMPT_CANDIDATES = 5; // per-call cap to avoid token blowups
+const CANDIDATE_TEXT_LIMIT = 80; // truncate per-candidate text to reduce tokens
 
-async function semanticIndex(
-  owner: Owner,
-  items: Array<
-    { item: Item; text: string; metadata?: Record<string, unknown> }
-  >,
-): Promise<void> {
-  const payload = items.map((i) => ({
-    id: `${owner}:${i.item}`,
-    text: i.text,
-    tags: { owner, ...(i.metadata ?? {}) },
-  }));
-
-  const addResponse = await fetch(`${SEMANTIC_SERVICE_URL}/add`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  if (!addResponse.ok) {
-    throw new Error(`txtai add failed: ${addResponse.status}`);
-  }
-  // Consume body so Deno doesn't report leaks when running tests.
-  if (addResponse.body) {
-    await addResponse.arrayBuffer();
-  }
-
-  const indexResponse = await fetch(`${SEMANTIC_SERVICE_URL}/index`, {
-    method: "GET",
-  });
-  if (!indexResponse.ok) {
-    throw new Error(`txtai index failed: ${indexResponse.status}`);
-  }
-  if (indexResponse.body) {
-    await indexResponse.arrayBuffer();
-  }
+function truncate(text: string, max = 400): string {
+  if (text.length <= max) return text;
+  return text.slice(0, max - 3) + "...";
 }
 
-async function semanticSearch(
-  owner: Owner,
+function buildCandidateText(doc: {
+  label?: string;
+  firstName?: string;
+  lastName?: string;
+  headline?: string | null;
+  location?: string | null;
+  industry?: string | null;
+  currentPosition?: string | null;
+  currentCompany?: string | null;
+  summary?: string | null;
+  skills?: string[];
+}): string {
+  const parts: string[] = [];
+  const name = [doc.firstName, doc.lastName]
+    .filter((x) => x && x.trim().length > 0)
+    .join(" ");
+  if (name) parts.push(name);
+  if (doc.label && doc.label.trim()) parts.push(doc.label.trim());
+  const roleCompany = [doc.currentPosition, doc.currentCompany]
+    .filter((x) => x && x.trim().length > 0)
+    .join(" at ");
+  if (roleCompany) parts.push(roleCompany);
+  if (doc.headline && doc.headline.trim()) parts.push(doc.headline.trim());
+  if (doc.location && doc.location.trim()) parts.push(doc.location.trim());
+  if (doc.industry && doc.industry.trim()) parts.push(doc.industry.trim());
+  if (doc.summary && doc.summary.trim()) parts.push(doc.summary.trim());
+  if (doc.skills && doc.skills.length) {
+    parts.push(`Skills: ${doc.skills.join(", ")}`);
+  }
+  return parts.join(" | ");
+}
+
+const stripCodeFences = (s: string) =>
+  s.replace(/```json\s*/gi, "").replace(/```/g, "");
+const stripTrailingCommas = (s: string) => s.replace(/,\s*([}\]])/g, "$1");
+
+const tryParseJson = (s: string): unknown => {
+  try {
+    return JSON.parse(s);
+  } catch (_err) {
+    return undefined;
+  }
+};
+
+function parseGeminiJson(text: string): {
+  entries: Array<{ connectionId?: string; score?: number }>;
+  ok: boolean;
+} {
+  const cleaned = stripTrailingCommas(stripCodeFences(text.trim()));
+  let parsed = tryParseJson(cleaned);
+  if (parsed === undefined) {
+    const match = cleaned.match(/\[[\s\S]*\]/);
+    if (match) {
+      parsed = tryParseJson(stripTrailingCommas(match[0]));
+    }
+  }
+  if (parsed === undefined) {
+    return { entries: [], ok: false };
+  }
+  const array = Array.isArray(parsed)
+    ? parsed
+    : Array.isArray((parsed as { results?: unknown }).results)
+    ? (parsed as { results: unknown[] }).results
+    : [];
+
+  const entries = array.filter((p) =>
+    typeof p === "object" && p !== null
+  ) as Array<
+    { connectionId?: string; score?: number }
+  >;
+  return { entries, ok: true };
+}
+async function geminiRank(
   query: string,
-  _filters: unknown,
-  limit = 20,
+  candidates: Array<{ id: string; text: string }>,
+  limit: number,
 ): Promise<Array<{ item: Item; score: number }>> {
-  const url = new URL(`${SEMANTIC_SERVICE_URL}/search`);
-  url.searchParams.set("query", query);
-  if (typeof limit === "number") {
-    url.searchParams.set("limit", String(limit));
+  if (!GEMINI_API_KEY) {
+    throw new Error("GEMINI_API_KEY is not set");
   }
 
-  // Enforce owner-level privacy in txtai by filtering on tags.owner.
-  url.searchParams.set("filters", JSON.stringify({ owner }));
+  if (!candidates.length) return [];
 
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`txtai search failed: ${response.status}`);
-  }
-  const data = await response.json();
-  const results = Array.isArray(data) ? data : data.results ?? [];
-  return results.map(
-    (entry: { id?: string; document?: string; score?: number } | string) => {
-      const id = typeof entry === "string"
-        ? entry
-        : entry.id ?? entry.document ?? "";
-      const itemId = typeof id === "string"
-        ? id.substring(id.lastIndexOf(":") + 1)
-        : "";
-      const score = typeof entry === "string" ? 0 : Number(entry.score ?? 0);
-      return { item: itemId as Item, score };
+  const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+  const model = genAI.getGenerativeModel({
+    model: GEMINI_MODEL,
+    generationConfig: {
+      temperature: 0.2,
+      maxOutputTokens: MAX_OUTPUT_TOKENS,
+      responseMimeType: "application/json",
     },
-  );
+  });
+
+  const aggregate = new Map<string, number>();
+  const batches: Array<Array<{ id: string; text: string }>> = [];
+  for (let i = 0; i < candidates.length; i += BATCH_PROMPT_CANDIDATES) {
+    const slice = candidates.slice(i, i + BATCH_PROMPT_CANDIDATES);
+    if (slice.length) batches.push(slice);
+  }
+
+  while (batches.length) {
+    const batch = batches.shift();
+    if (!batch?.length) continue;
+
+    const promptLines: string[] = [];
+    const cappedK = Math.min(limit, batch.length, 5);
+    promptLines.push("You are a ranking function.");
+    promptLines.push(
+      "Return ONLY the JSON array described below. Do not preface it, do not say 'Here is'.",
+    );
+    promptLines.push(
+      'Format: a JSON array (no code fences) of up to K objects, sorted best to worst, each exactly {"connectionId": string, "score": number between 0 and 1}.',
+    );
+    promptLines.push(
+      "If no candidates are relevant, return [] (just the brackets).",
+    );
+    promptLines.push(`Query: ${query}`);
+    promptLines.push("Candidates:");
+    for (const c of batch) {
+      promptLines.push(
+        `- id: ${c.id}\n  text: ${truncate(c.text, CANDIDATE_TEXT_LIMIT)}`,
+      );
+    }
+    promptLines.push(
+      `K: up to ${cappedK} (choose count based on relevance, no padding).`,
+    );
+
+    const body = {
+      systemInstruction: {
+        role: "user",
+        parts: [{
+          text:
+            "Always obey the user instructions exactly. Never wrap answers in ```json or say 'Here is the JSON requested'.",
+        }],
+      },
+      contents: [
+        {
+          role: "user",
+          parts: [
+            {
+              text: promptLines.join("\n"),
+            },
+          ],
+        },
+      ],
+      generationConfig: {
+        temperature: 0.2,
+        maxOutputTokens: MAX_OUTPUT_TOKENS,
+        responseMimeType: "application/json",
+      },
+    };
+
+    const result = await model.generateContent(body);
+    const response = result.response;
+    // deno-lint-ignore no-explicit-any
+    const finishReason = (response as any)?.candidates?.[0]?.finishReason;
+    const text = response?.text() ?? "";
+    if (GEMINI_LOG_RAW) {
+      console.log("[Gemini] raw json:", JSON.stringify(response ?? {}));
+      console.log("[Gemini] raw text:", text);
+      if (finishReason) {
+        console.log("[Gemini] finishReason:", finishReason);
+      }
+    }
+
+    if (!text || finishReason === "MAX_TOKENS") {
+      if (finishReason === "MAX_TOKENS" && batch.length > 1) {
+        const mid = Math.ceil(batch.length / 2);
+        batches.unshift(batch.slice(mid));
+        batches.unshift(batch.slice(0, mid));
+      } else if (GEMINI_LOG_RAW) {
+        console.log(
+          "[Gemini] skipping batch due to empty response or token limit",
+        );
+      }
+      continue;
+    }
+
+    const parsed = parseGeminiJson(text);
+    if (!parsed.ok) {
+      if (GEMINI_LOG_RAW) {
+        console.log("[Gemini] parse failed for text length", text.length);
+      }
+      continue;
+    }
+
+    for (const entry of parsed.entries) {
+      if (!entry?.connectionId) continue;
+      const score = typeof entry.score === "number" ? entry.score : 0;
+      const existing = aggregate.get(entry.connectionId);
+      if (existing === undefined || score > existing) {
+        aggregate.set(entry.connectionId, score);
+      }
+    }
+  }
+
+  return Array.from(aggregate.entries())
+    .map(([item, score]) => ({ item, score }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit);
 }
 
 export default class SemanticSearchConcept {
@@ -139,15 +281,6 @@ export default class SemanticSearchConcept {
         },
       },
       { upsert: true },
-    );
-
-    const ownerDocs = await this.indexedItems.find({ owner }).toArray();
-    await semanticIndex(
-      owner,
-      ownerDocs.map((doc) => ({
-        item: doc.item,
-        text: doc.text,
-      })),
     );
 
     return {};
@@ -196,7 +329,13 @@ export default class SemanticSearchConcept {
       return { queryID: "" };
     }
 
-    const results = await semanticSearch(owner, queryText, filters ?? {}, 50);
+    // Gemini ranking is stateless; we only store the request/response pairing.
+    const ownerDocs = await this.indexedItems.find({ owner }).toArray();
+    const candidates = ownerDocs.map((doc) => ({
+      id: String(doc.item),
+      text: doc.text,
+    }));
+    const results = await geminiRank(queryText, candidates, 50);
     const resultItems = results.map((r) => r.item);
 
     const queryID = crypto.randomUUID();
@@ -232,12 +371,13 @@ export default class SemanticSearchConcept {
       return {};
     }
 
-    const results = await semanticSearch(
-      existing.owner,
-      existing.queryText,
-      filters ?? {},
-      50,
-    );
+    const ownerDocs = await this.indexedItems.find({ owner: existing.owner })
+      .toArray();
+    const candidates = ownerDocs.map((doc) => ({
+      id: String(doc.item),
+      text: doc.text,
+    }));
+    const results = await geminiRank(existing.queryText, candidates, 50);
     const resultItems = results.map((r) => r.item);
 
     await this.searchQueries.updateOne(
@@ -296,85 +436,90 @@ export default class SemanticSearchConcept {
       return { results: [] };
     }
 
-    // 1. Run semantic search via txtai.
-    const rawResults = await semanticSearch(owner, trimmed, {}, limit);
-    if (!rawResults.length) return { results: [] };
-
-    // 2. Fetch matching LinkedIn connections by _id where possible.
-    const ids = rawResults
-      .map((r) => String(r.item))
-      .filter((id) =>
-        id && !["FULLSTACK_ID", "BACKEND_ID", "ML_ID"].includes(id)
-      );
-
-    const connectionsCollection = this.db.collection<
-      { _id: string; account: unknown }
-    >(
-      "LinkedInImport.connections",
-    );
-    // Only return connections that belong to accounts owned by this user.
-    // We infer ownership by matching connection.account to any LinkedInImport
-    // account whose user field equals the provided owner.
-    const accountsCollection = this.db.collection(
-      "LinkedInImport.accounts",
-    );
+    // Load all owner-owned connections (capped) and ask Gemini to rank.
+    const accountsCollection = this.db.collection("LinkedInImport.accounts");
     const ownerAccounts = await accountsCollection
       .find({ user: owner as unknown })
       .toArray();
     const ownerAccountIds = ownerAccounts.map((a) => a._id);
 
+    const connectionsCollection = this.db.collection<
+      { _id: string; account: unknown }
+    >("LinkedInImport.connections");
+
     const docs = await connectionsCollection
-      .find({
-        _id: { $in: ids as string[] },
-        account: { $in: ownerAccountIds as unknown[] },
-      })
+      .find({ account: { $in: ownerAccountIds as unknown[] } })
+      .limit(MAX_CANDIDATES)
       .toArray();
+
+    const candidates = docs.map((doc) => ({
+      id: String(doc._id),
+      text: buildCandidateText(doc),
+    }));
+
+    const rawResults = await geminiRank(trimmed, candidates, limit);
+    if (!rawResults.length) return { results: [] };
 
     // deno-lint-ignore no-explicit-any
     const byId = new Map<string, any>(
       docs.map((doc) => [String(doc._id), doc]),
     );
 
-    // 3. Build rich results in the original semantic order.
-    const results = rawResults.map((r) => {
-      const connectionId = String(r.item);
-      const score = Number.isFinite(r.score) ? r.score : 0;
-      const doc = byId.get(connectionId);
+    const results = rawResults
+      .map((r) => {
+        const connectionId = String(r.item);
+        const score = Number.isFinite(r.score) ? r.score : 0;
+        const doc = byId.get(connectionId);
+        if (!doc) return null;
+        return {
+          connectionId,
+          score,
+          text: candidates.find((c) => c.id === connectionId)?.text ?? trimmed,
+          connection: {
+            _id: String(doc._id),
+            linkedInConnectionId: doc.linkedInConnectionId,
+            firstName: doc.firstName,
+            lastName: doc.lastName,
+            headline: doc.headline ?? null,
+            location: doc.location ?? null,
+            industry: doc.industry ?? null,
+            currentPosition: doc.currentPosition ?? null,
+            currentCompany: doc.currentCompany ?? null,
+            profileUrl: doc.profileUrl ?? null,
+            profilePictureUrl: doc.profilePictureUrl ?? null,
+            summary: doc.summary ?? null,
+          },
+        };
+      })
+      .filter(Boolean) as Array<{
+        connectionId: string;
+        score: number;
+        text: string;
+        connection?: {
+          _id: string;
+          linkedInConnectionId?: string;
+          firstName?: string;
+          lastName?: string;
+          headline?: string | null;
+          location?: string | null;
+          industry?: string | null;
+          currentPosition?: string | null;
+          currentCompany?: string | null;
+          profileUrl?: string | null;
+          profilePictureUrl?: string | null;
+          summary?: string | null;
+        };
+      }>;
 
-      const connection = doc
-        ? {
-          _id: String(doc._id),
-          linkedInConnectionId: doc.linkedInConnectionId,
-          firstName: doc.firstName,
-          lastName: doc.lastName,
-          headline: doc.headline ?? null,
-          location: doc.location ?? null,
-          industry: doc.industry ?? null,
-          currentPosition: doc.currentPosition ?? null,
-          currentCompany: doc.currentCompany ?? null,
-          profileUrl: doc.profileUrl ?? null,
-          profilePictureUrl: doc.profilePictureUrl ?? null,
-          summary: doc.summary ?? null,
-        }
-        : undefined;
-
-      const text = doc?.summary ? String(doc.summary) : trimmed;
-
-      return { connectionId, score, text, connection };
-    });
-
-    // 4. Prefer results that resolve to real connections; hide bare ids.
-    const connected = results.filter((r) => r.connection);
-
-    // 5. De-duplicate by connectionId, keeping the highest score per id.
-    const bestById = new Map<string, (typeof connected)[number]>();
-    for (const r of connected) {
+    // De-duplicate by connectionId, keeping highest score
+    const bestById = new Map<string, (typeof results)[number]>();
+    for (const r of results) {
       const existing = bestById.get(r.connectionId);
       if (!existing || r.score > existing.score) {
         bestById.set(r.connectionId, r);
       }
     }
 
-    return { results: Array.from(bestById.values()) };
+    return { results: Array.from(bestById.values()).slice(0, limit) };
   }
 }
