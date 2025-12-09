@@ -228,6 +228,11 @@ async function handleSavePhoto() {
     // Reload profile to get updated data
     await loadProfile();
 
+    // Dispatch custom event to notify other components (like HomePage) to refresh
+    window.dispatchEvent(new CustomEvent('profilePictureUpdated', {
+      detail: { userId: auth.userId }
+    }));
+
     banner.value = { type: "success", message: "Profile photo saved successfully!" };
   } catch (error) {
     const message = error instanceof Error

@@ -1739,8 +1739,8 @@ async function fetchNodeProfiles(nodeIds: string[]) {
             // If profile exists, store it with the username
             if (profile) {
                 // Get profile picture URL if available
-                if ((profile as any).profilePictureUrl) {
-                    avatarUrl = (profile as any).profilePictureUrl;
+                if (profile.profilePictureUrl) {
+                    avatarUrl = profile.profilePictureUrl;
                     avatarStore.setForUser(nodeId, avatarUrl);
                 } else {
                     avatarUrl = avatarStore.getForUser(nodeId);
@@ -1928,15 +1928,28 @@ async function renderNetwork() {
         let profileData = nodeProfiles.value[nodeId];
         if (!profileData) {
             if (nodeId === auth.userId) {
-                // Owner node - use auth store username
+                // Owner node - use auth store username and profile picture from PublicProfile
+                // Note: profileData might not be set yet if fetchNodeProfiles hasn't completed
+                // but we'll use the avatarStore as fallback
                 profileData = {
-                    avatarUrl: avatarStore.getForUser(nodeId),
+                    avatarUrl: avatarStore.getForUser(nodeId) || avatarStore.DEFAULT_AVATAR,
                     username: auth.username || nodeId,
                 };
             } else {
                 profileData = {
                     avatarUrl: avatarStore.DEFAULT_AVATAR,
                     username: nodeId,
+                };
+            }
+        }
+
+        // For root node: ensure we use profile picture from PublicProfile if available
+        if (nodeId === auth.userId && profileData.profile) {
+            const publicProfile = profileData.profile as PublicProfile | undefined;
+            if (publicProfile?.profilePictureUrl) {
+                profileData = {
+                    ...profileData,
+                    avatarUrl: publicProfile.profilePictureUrl,
                 };
             }
         }

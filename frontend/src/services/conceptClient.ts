@@ -155,6 +155,7 @@ export interface PublicProfile {
   headline: string;
   attributes: string[];
   links: string[];
+  profilePictureUrl?: string;
 }
 
 export const PublicProfileAPI = {
