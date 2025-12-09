@@ -9,7 +9,7 @@
           </p>
         </div>
         <button class="close-btn" type="button" @click="emit('close')" aria-label="Close">
-          <i class="fa-solid fa-xmark"></i>
+          ×
         </button>
       </div>
 

@@ -8,7 +8,7 @@
                     @click="$emit('close')"
                     aria-label="Close"
                 >
-                    <i class="fa-solid fa-xmark"></i>
+                    ×
                 </button>
             </div>
             <div class="modal-body">
@@ -476,24 +476,28 @@ async function handleSubmit(event?: Event) {
 }
 
 .modal-close {
-    background: transparent;
-    border: none;
-    font-size: 1.5rem;
-    color: #64748b;
+    background: #f1f5f9;
+    border: 2px solid #e2e8f0;
+    font-size: 1.75rem;
+    font-weight: 600;
+    color: #1e293b;
     cursor: pointer;
-    padding: 0.25rem;
-    border-radius: 0.25rem;
+    padding: 0;
+    border-radius: 50%;
     transition: all 0.2s ease;
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 2rem;
-    height: 2rem;
+    width: 2.5rem;
+    height: 2.5rem;
+    line-height: 1;
 }
 
 .modal-close:hover {
-    background: #f1f5f9;
-    color: #1e293b;
+    background: #e2e8f0;
+    border-color: #cbd5e1;
+    color: #0f172a;
+    transform: scale(1.1);
 }
 
 .modal-body {
