@@ -7,6 +7,10 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src"),
+      "vis-network/standalone": path.resolve(
+        __dirname,
+        "node_modules/vis-network/standalone/esm/vis-network.js",
+      ),
     },
   },
   server: {
