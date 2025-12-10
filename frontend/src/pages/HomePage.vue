@@ -11,7 +11,13 @@
                         @keydown="handleKeyDown"
                         @focus="showAutocompleteDropdown = true"
                         @blur="hideAutocomplete"
-                        :placeholder="viewMode === 'network' ? 'Use the search bar in card view only' : (searchMode === 'semantic' ? 'Describe what you\'re looking for...' : 'Who are you looking for?...')"
+                        :placeholder="
+                            viewMode === 'network'
+                                ? 'Use the search bar in card view only'
+                                : searchMode === 'semantic'
+                                ? 'Describe what you\'re looking for...'
+                                : 'Who are you looking for?...'
+                        "
                         class="search-input"
                         :class="{ 'semantic-mode': searchMode === 'semantic' }"
                         :disabled="viewMode === 'network'"
@@ -30,7 +36,9 @@
                         class="autocomplete-dropdown"
                     >
                         <div
-                            v-for="(suggestion, index) in autocompleteSuggestions"
+                            v-for="(
+                                suggestion, index
+                            ) in autocompleteSuggestions"
                             :key="index"
                             :class="[
                                 'autocomplete-item',
@@ -63,7 +71,11 @@
                     @click="triggerSearch"
                     class="smart-search-btn"
                     :class="{ active: searchMode === 'semantic' }"
-                    :disabled="semanticLoading || !searchQuery.trim() || viewMode === 'network'"
+                    :disabled="
+                        semanticLoading ||
+                        !searchQuery.trim() ||
+                        viewMode === 'network'
+                    "
                     title="Search"
                 >
                     <span>Search</span>
@@ -73,15 +85,22 @@
                     class="view-toggle-btn"
                     :class="{ active: viewMode === 'network' }"
                 >
-                    {{ viewMode === 'card' ? 'Network View' : 'Card View' }}
+                    {{ viewMode === "card" ? "Network View" : "Card View" }}
                 </button>
             </div>
 
             <!-- Smart Search Toggle Slider -->
-            <div class="smart-search-toggle-container" v-if="viewMode === 'card'">
+            <div
+                class="smart-search-toggle-container"
+                v-if="viewMode === 'card'"
+            >
                 <label class="toggle-label">
                     <span>Smart Search</span>
-                    <div class="toggle-switch" :class="{ active: searchMode === 'semantic' }" @click="toggleSearchMode">
+                    <div
+                        class="toggle-switch"
+                        :class="{ active: searchMode === 'semantic' }"
+                        @click="toggleSearchMode"
+                    >
                         <div class="toggle-slider"></div>
                     </div>
                 </label>
@@ -113,7 +132,14 @@
             <!-- Card View -->
             <div v-if="viewMode === 'card'" class="card-view">
                 <!-- Card View Controls -->
-                <div v-if="!loading && !semanticLoading && displayedNodes.length > 0" class="card-view-controls">
+                <div
+                    v-if="
+                        !loading &&
+                        !semanticLoading &&
+                        displayedNodes.length > 0
+                    "
+                    class="card-view-controls"
+                >
                     <div class="controls-row">
                         <div class="control-group">
                             <label for="cards-per-row">Cards per Row:</label>
@@ -139,7 +165,8 @@
                         </div>
                     </div>
                     <div class="connections-count">
-                        Showing {{ startIndex + 1 }}-{{ endIndex }} out of {{ displayedNodes.length }} connections
+                        Showing {{ startIndex + 1 }}-{{ endIndex }} out of
+                        {{ displayedNodes.length }} connections
                     </div>
                 </div>
 
@@ -161,14 +188,19 @@
                     <h3>No connections found</h3>
                     <p>
                         {{
-                            searchMode === 'semantic'
+                            searchMode === "semantic"
                                 ? "Try a different search query or switch to text search"
                                 : "Try adjusting your search or add connections in Edit Network"
                         }}
                     </p>
                 </div>
                 <template v-else>
-                    <div class="cards-grid" :style="{ gridTemplateColumns: `repeat(${cardsPerRow}, 1fr)` }">
+                    <div
+                        class="cards-grid"
+                        :style="{
+                            gridTemplateColumns: `repeat(${cardsPerRow}, 1fr)`,
+                        }"
+                    >
                         <ConnectionCard
                             v-for="node in paginatedNodes"
                             :key="node.id"
@@ -256,7 +288,10 @@
                     </div>
                 </div>
                 <div class="modal-body">
-                    <div v-if="selectedProfileData && !isEditingProfile" class="profile-view">
+                    <div
+                        v-if="selectedProfileData && !isEditingProfile"
+                        class="profile-view"
+                    >
                         <div class="profile-header">
                             <div class="profile-avatar-large">
                                 <img
@@ -281,7 +316,9 @@
                                 </p>
                                 <div class="profile-meta">
                                     <span
-                                        v-if="selectedProfileData.currentCompany"
+                                        v-if="
+                                            selectedProfileData.currentCompany
+                                        "
                                         class="profile-meta-item"
                                     >
                                         <i class="fa-solid fa-building"></i>
@@ -291,7 +328,9 @@
                                         v-if="selectedProfileData.location"
                                         class="profile-meta-item"
                                     >
-                                        <i class="fa-solid fa-map-marker-alt"></i>
+                                        <i
+                                            class="fa-solid fa-map-marker-alt"
+                                        ></i>
                                         {{ selectedProfileData.location }}
                                     </span>
                                 </div>
@@ -362,7 +401,10 @@
 
                             <!-- Skills -->
                             <div
-                                v-if="selectedProfileData.skills && selectedProfileData.skills.length > 0"
+                                v-if="
+                                    selectedProfileData.skills &&
+                                    selectedProfileData.skills.length > 0
+                                "
                                 class="detail-section"
                             >
                                 <h3 class="detail-title">
@@ -382,7 +424,10 @@
 
                             <!-- Education -->
                             <div
-                                v-if="selectedProfileData.education && selectedProfileData.education.length > 0"
+                                v-if="
+                                    selectedProfileData.education &&
+                                    selectedProfileData.education.length > 0
+                                "
                                 class="detail-section"
                             >
                                 <h3 class="detail-title">
@@ -391,18 +436,35 @@
                                 </h3>
                                 <div class="education-list">
                                     <div
-                                        v-for="(edu, index) in selectedProfileData.education"
+                                        v-for="(
+                                            edu, index
+                                        ) in selectedProfileData.education"
                                         :key="index"
                                         class="education-item"
                                     >
                                         <p class="education-school">
-                                            <strong>{{ edu.school || "School" }}</strong>
+                                            <strong>{{
+                                                edu.school || "School"
+                                            }}</strong>
                                         </p>
-                                        <p v-if="edu.degree || edu.fieldOfStudy" class="education-degree">
-                                            {{ [edu.degree, edu.fieldOfStudy].filter(Boolean).join(", ") }}
+                                        <p
+                                            v-if="
+                                                edu.degree || edu.fieldOfStudy
+                                            "
+                                            class="education-degree"
+                                        >
+                                            {{
+                                                [edu.degree, edu.fieldOfStudy]
+                                                    .filter(Boolean)
+                                                    .join(", ")
+                                            }}
                                         </p>
-                                        <p v-if="edu.startYear || edu.endYear" class="education-years">
-                                            {{ edu.startYear || "?" }} - {{ edu.endYear || "Present" }}
+                                        <p
+                                            v-if="edu.startYear || edu.endYear"
+                                            class="education-years"
+                                        >
+                                            {{ edu.startYear || "?" }} -
+                                            {{ edu.endYear || "Present" }}
                                         </p>
                                     </div>
                                 </div>
@@ -410,7 +472,10 @@
 
                             <!-- Experience -->
                             <div
-                                v-if="selectedProfileData.experience && selectedProfileData.experience.length > 0"
+                                v-if="
+                                    selectedProfileData.experience &&
+                                    selectedProfileData.experience.length > 0
+                                "
                                 class="detail-section"
                             >
                                 <h3 class="detail-title">
@@ -419,20 +484,34 @@
                                 </h3>
                                 <div class="experience-list">
                                     <div
-                                        v-for="(exp, index) in selectedProfileData.experience"
+                                        v-for="(
+                                            exp, index
+                                        ) in selectedProfileData.experience"
                                         :key="index"
                                         class="experience-item"
                                     >
                                         <p class="experience-title">
-                                            <strong>{{ exp.title || "Position" }}</strong>
-                                            <span v-if="exp.company" class="experience-company">
+                                            <strong>{{
+                                                exp.title || "Position"
+                                            }}</strong>
+                                            <span
+                                                v-if="exp.company"
+                                                class="experience-company"
+                                            >
                                                 at {{ exp.company }}
                                             </span>
                                         </p>
-                                        <p v-if="exp.startDate || exp.endDate" class="experience-dates">
-                                            {{ exp.startDate || "?" }} - {{ exp.endDate || "Present" }}
+                                        <p
+                                            v-if="exp.startDate || exp.endDate"
+                                            class="experience-dates"
+                                        >
+                                            {{ exp.startDate || "?" }} -
+                                            {{ exp.endDate || "Present" }}
                                         </p>
-                                        <p v-if="exp.description" class="experience-description">
+                                        <p
+                                            v-if="exp.description"
+                                            class="experience-description"
+                                        >
                                             {{ exp.description }}
                                         </p>
                                     </div>
@@ -441,7 +520,10 @@
 
                             <!-- Tags -->
                             <div
-                                v-if="selectedProfileData.tags && selectedProfileData.tags.length > 0"
+                                v-if="
+                                    selectedProfileData.tags &&
+                                    selectedProfileData.tags.length > 0
+                                "
                                 class="detail-section"
                             >
                                 <h3 class="detail-title">
@@ -475,14 +557,19 @@
                                     class="profile-link"
                                 >
                                     {{ selectedProfileData.profileUrl }}
-                                    <i class="fa-solid fa-external-link-alt"></i>
+                                    <i
+                                        class="fa-solid fa-external-link-alt"
+                                    ></i>
                                 </a>
                             </div>
                         </div>
                     </div>
 
                     <!-- Edit Profile Form -->
-                    <div v-if="selectedProfileData && isEditingProfile" class="edit-profile-form">
+                    <div
+                        v-if="selectedProfileData && isEditingProfile"
+                        class="edit-profile-form"
+                    >
                         <!-- Profile Picture Upload -->
                         <div class="form-section">
                             <label class="form-label">Profile Picture</label>
@@ -605,7 +692,9 @@
                                 :disabled="savingProfile"
                             >
                                 <i class="fa-solid fa-save"></i>
-                                {{ savingProfile ? "Saving..." : "Save Changes" }}
+                                {{
+                                    savingProfile ? "Saving..." : "Save Changes"
+                                }}
                             </button>
                             <button
                                 type="button"
@@ -885,9 +974,13 @@ const displayedNodes = computed(() => {
                 const nameMatch = node.displayName
                     .toLowerCase()
                     .includes(query);
-                const locationMatch = node.location?.toLowerCase().includes(query);
+                const locationMatch = node.location
+                    ?.toLowerCase()
+                    .includes(query);
                 const jobMatch = node.currentJob?.toLowerCase().includes(query);
-                const companyMatch = node.company?.toLowerCase().includes(query);
+                const companyMatch = node.company
+                    ?.toLowerCase()
+                    .includes(query);
                 return nameMatch || locationMatch || jobMatch || companyMatch;
             });
         }
@@ -910,7 +1003,9 @@ const displayedNodes = computed(() => {
                     linkedInConn?.currentCompany ||
                     profile?.profile?.company ||
                     node.company;
-                return company?.toLowerCase().includes(filter.value.toLowerCase());
+                return company
+                    ?.toLowerCase()
+                    .includes(filter.value.toLowerCase());
             });
         } else if (filter.type === "location") {
             results = results.filter((node) => {
@@ -920,10 +1015,18 @@ const displayedNodes = computed(() => {
                     linkedInConn?.location ||
                     profile?.profile?.location ||
                     node.location;
-                return location?.toLowerCase().includes(filter.value.toLowerCase());
+                return location
+                    ?.toLowerCase()
+                    .includes(filter.value.toLowerCase());
             });
         }
     });
+
+    // Exclude the owner's own node from card results (but keep it in the graph)
+    const ownerId = auth.userId;
+    if (ownerId) {
+        results = results.filter((node) => node.id !== ownerId);
+    }
 
     return results;
 });
@@ -968,9 +1071,7 @@ const selectedProfileData = computed(() => {
             profileData.company ||
             "",
         currentPosition:
-            linkedInConn?.currentPosition ||
-            profileData.currentPosition ||
-            "",
+            linkedInConn?.currentPosition || profileData.currentPosition || "",
         location:
             linkedInConn?.location ||
             profileData.location ||
@@ -1054,7 +1155,8 @@ async function performSemanticSearch() {
                     const fullName = `${firstName} ${lastName}`.trim();
                     displayName = fullName || conn.headline || connectionId;
                     avatarUrl =
-                        conn.profilePictureUrl || avatarStore.getLetterAvatar(displayName);
+                        conn.profilePictureUrl ||
+                        avatarStore.getLetterAvatar(displayName);
                     location = conn.location;
                     currentJob = conn.currentPosition || conn.headline;
                     company = conn.currentCompany;
@@ -1076,9 +1178,10 @@ async function performSemanticSearch() {
                     }
 
                     // Use empty string if avatar is default so initials will show
-                    avatarUrl = profileData.avatarUrl === avatarStore.DEFAULT_AVATAR
-                        ? ""
-                        : profileData.avatarUrl;
+                    avatarUrl =
+                        profileData.avatarUrl === avatarStore.DEFAULT_AVATAR
+                            ? ""
+                            : profileData.avatarUrl;
                     location = profData.location;
                     currentJob = profData.headline;
                     company = profData.company;
@@ -1232,7 +1335,11 @@ function selectSuggestion(suggestion: {
         showAutocompleteDropdown.value = false;
         selectedAutocompleteIndex.value = -1;
     } else {
-        addFilter(suggestion.type, getFilterLabel(suggestion.type), suggestion.value);
+        addFilter(
+            suggestion.type,
+            getFilterLabel(suggestion.type),
+            suggestion.value
+        );
         searchQuery.value = "";
         showAutocompleteDropdown.value = false;
         selectedAutocompleteIndex.value = -1;
@@ -1250,9 +1357,7 @@ function getFilterLabel(type: string): string {
 
 function addFilter(type: string, label: string, value: string) {
     const existingFilter = activeFilters.value.find(
-        (f) =>
-            f.type === type &&
-            f.value.toLowerCase() === value.toLowerCase()
+        (f) => f.type === type && f.value.toLowerCase() === value.toLowerCase()
     );
 
     if (!existingFilter) {
@@ -1308,7 +1413,9 @@ function handleImageError(event: Event) {
     const img = event.target as HTMLImageElement;
     // Hide the image - the placeholder will show via v-else
     img.style.display = "none";
-    const placeholder = img.parentElement?.querySelector(".avatar-placeholder, .avatar-placeholder-large") as HTMLElement;
+    const placeholder = img.parentElement?.querySelector(
+        ".avatar-placeholder, .avatar-placeholder-large"
+    ) as HTMLElement;
     if (placeholder) {
         placeholder.style.display = "flex";
     }
@@ -1427,7 +1534,10 @@ async function saveProfile() {
         return;
     }
 
-    if (!editProfileForm.value.firstName.trim() || !editProfileForm.value.lastName.trim()) {
+    if (
+        !editProfileForm.value.firstName.trim() ||
+        !editProfileForm.value.lastName.trim()
+    ) {
         errorProfile.value = "First name and last name are required.";
         return;
     }
@@ -1436,8 +1546,12 @@ async function saveProfile() {
     errorProfile.value = null;
 
     try {
-        const label = `${editProfileForm.value.firstName} ${editProfileForm.value.lastName}`.trim();
-        const headline = editProfileForm.value.headline || editProfileForm.value.jobTitle || "";
+        const label =
+            `${editProfileForm.value.firstName} ${editProfileForm.value.lastName}`.trim();
+        const headline =
+            editProfileForm.value.headline ||
+            editProfileForm.value.jobTitle ||
+            "";
 
         const updateMeta = {
             firstName: editProfileForm.value.firstName.trim(),
@@ -1456,7 +1570,7 @@ async function saveProfile() {
         console.log("Saving profile:", {
             selectedProfileId: selectedProfileId.value,
             userId: auth.userId,
-            isOwnProfile
+            isOwnProfile,
         });
 
         // Always ensure network exists first (this creates the node document and membership for userId->userId)
@@ -1478,15 +1592,20 @@ async function saveProfile() {
             const errorMsg = nodeResult.error.toLowerCase();
 
             // If node doesn't exist, we need to create it
-            if (errorMsg.includes("not found") || errorMsg.includes("does not exist")) {
+            if (
+                errorMsg.includes("not found") ||
+                errorMsg.includes("does not exist")
+            ) {
                 if (isOwnProfile) {
                     // For own profile, the node should already exist after createNetwork
                     // But if it doesn't, we need to ensure it exists
                     // The createNetwork should have created it, so this might be a timing issue
                     // Retry after a short delay, or the node ID might be wrong
-                    console.warn("Own profile node not found after createNetwork, retrying update...");
+                    console.warn(
+                        "Own profile node not found after createNetwork, retrying update..."
+                    );
                     // Wait a moment and retry
-                    await new Promise(resolve => setTimeout(resolve, 100));
+                    await new Promise((resolve) => setTimeout(resolve, 100));
                     nodeResult = await MultiSourceNetworkAPI.updateNode({
                         node: selectedProfileId.value,
                         updater: auth.userId,
@@ -1495,37 +1614,53 @@ async function saveProfile() {
                 } else {
                     // For other nodes, create it using createNodeForUser
                     try {
-                        const createResult = await MultiSourceNetworkAPI.createNodeForUser({
-                            owner: auth.userId,
-                            firstName: updateMeta.firstName,
-                            lastName: updateMeta.lastName,
-                            label: updateMeta.label,
-                            headline: updateMeta.headline,
-                            location: updateMeta.location,
-                            currentCompany: updateMeta.currentCompany,
-                            currentPosition: updateMeta.currentPosition,
-                            avatarUrl: updateMeta.avatarUrl,
-                        });
+                        const createResult =
+                            await MultiSourceNetworkAPI.createNodeForUser({
+                                owner: auth.userId,
+                                firstName: updateMeta.firstName,
+                                lastName: updateMeta.lastName,
+                                label: updateMeta.label,
+                                headline: updateMeta.headline,
+                                location: updateMeta.location,
+                                currentCompany: updateMeta.currentCompany,
+                                currentPosition: updateMeta.currentPosition,
+                                avatarUrl: updateMeta.avatarUrl,
+                            });
 
                         // Node was created - if it has a different ID, we're done
                         // Otherwise, try to update it
-                        if (createResult.node && createResult.node !== selectedProfileId.value) {
+                        if (
+                            createResult.node &&
+                            createResult.node !== selectedProfileId.value
+                        ) {
                             // Node was created with new ID - reload to see it
                         } else {
                             // Try updating again
-                            nodeResult = await MultiSourceNetworkAPI.updateNode({
-                                node: selectedProfileId.value,
-                                updater: auth.userId,
-                                meta: updateMeta,
-                            });
+                            nodeResult = await MultiSourceNetworkAPI.updateNode(
+                                {
+                                    node: selectedProfileId.value,
+                                    updater: auth.userId,
+                                    meta: updateMeta,
+                                }
+                            );
                         }
                     } catch (createErr) {
-                        throw new Error(`Failed to create node: ${createErr instanceof Error ? createErr.message : String(createErr)}`);
+                        throw new Error(
+                            `Failed to create node: ${
+                                createErr instanceof Error
+                                    ? createErr.message
+                                    : String(createErr)
+                            }`
+                        );
                     }
                 }
             }
             // If authorization/membership error
-            else if (errorMsg.includes("authorized") || errorMsg.includes("membership") || errorMsg.includes("not authorized")) {
+            else if (
+                errorMsg.includes("authorized") ||
+                errorMsg.includes("membership") ||
+                errorMsg.includes("not authorized")
+            ) {
                 // If the node is not the userId, try to add it to network
                 if (!isOwnProfile) {
                     try {
@@ -1535,7 +1670,10 @@ async function saveProfile() {
                             source: "user",
                         });
                     } catch (e) {
-                        console.log("Note: Could not add node to network (may already exist):", e);
+                        console.log(
+                            "Note: Could not add node to network (may already exist):",
+                            e
+                        );
                     }
                 }
 
@@ -1559,7 +1697,10 @@ async function saveProfile() {
         isEditingProfile.value = false;
     } catch (err) {
         console.error("Error saving profile:", err);
-        const errorMessage = err instanceof Error ? err.message : "Failed to save profile. Please try again.";
+        const errorMessage =
+            err instanceof Error
+                ? err.message
+                : "Failed to save profile. Please try again.";
         errorProfile.value = errorMessage;
     } finally {
         savingProfile.value = false;
@@ -1574,10 +1715,14 @@ function getInitials(text: string): string {
     return trimmed[0].toUpperCase();
 }
 
-async function fetchNodeProfiles(nodeIds: string[], forceRefresh: string[] = []) {
+async function fetchNodeProfiles(
+    nodeIds: string[],
+    forceRefresh: string[] = []
+) {
     const profilePromises = nodeIds.map(async (nodeId) => {
         // Skip if already cached, unless we're forcing a refresh for this node
-        if (nodeProfiles.value[nodeId] && !forceRefresh.includes(nodeId)) return;
+        if (nodeProfiles.value[nodeId] && !forceRefresh.includes(nodeId))
+            return;
 
         let profile: PublicProfile | undefined;
         let username = nodeId;
@@ -1725,7 +1870,10 @@ async function loadNetworkData() {
                         ...nd,
                     },
                     avatarUrl:
-                        (nd.avatarUrl as string) || avatarStore.getLetterAvatar(nd.label || nd.firstName || id),
+                        (nd.avatarUrl as string) ||
+                        avatarStore.getLetterAvatar(
+                            nd.label || nd.firstName || id
+                        ),
                     username: (nd.label as string) || id,
                 };
             });
@@ -1734,7 +1882,10 @@ async function loadNetworkData() {
         }
 
         // Always force refresh for current user to get latest profile picture
-        await fetchNodeProfiles(Array.from(allNodeIds), auth.userId ? [auth.userId] : []);
+        await fetchNodeProfiles(
+            Array.from(allNodeIds),
+            auth.userId ? [auth.userId] : []
+        );
 
         const nodes: Array<{
             id: string;
@@ -1768,7 +1919,8 @@ async function loadNetworkData() {
                     linkedInConn.profilePictureUrl ||
                     avatarStore.getLetterAvatar(displayName);
                 location = linkedInConn.location;
-                currentJob = linkedInConn.currentPosition || linkedInConn.headline;
+                currentJob =
+                    linkedInConn.currentPosition || linkedInConn.headline;
                 company = linkedInConn.currentCompany;
 
                 nodeProfiles.value[nodeId] = {
@@ -1799,20 +1951,24 @@ async function loadNetworkData() {
 
                 // For root node (current user), prioritize profile picture from PublicProfile
                 if (nodeId === auth.userId) {
-                    const publicProfile = profileData.profile as PublicProfile | undefined;
+                    const publicProfile = profileData.profile as
+                        | PublicProfile
+                        | undefined;
                     if (publicProfile?.profilePictureUrl) {
                         avatarUrl = publicProfile.profilePictureUrl;
                     } else {
                         // Use empty string if avatar is default so initials will show
-                        avatarUrl = profileData.avatarUrl === avatarStore.DEFAULT_AVATAR
-                            ? ""
-                            : profileData.avatarUrl;
+                        avatarUrl =
+                            profileData.avatarUrl === avatarStore.DEFAULT_AVATAR
+                                ? ""
+                                : profileData.avatarUrl;
                     }
                 } else {
                     // Use empty string if avatar is default so initials will show
-                    avatarUrl = profileData.avatarUrl === avatarStore.DEFAULT_AVATAR
-                        ? ""
-                        : profileData.avatarUrl;
+                    avatarUrl =
+                        profileData.avatarUrl === avatarStore.DEFAULT_AVATAR
+                            ? ""
+                            : profileData.avatarUrl;
                 }
                 location = profile.location;
                 currentJob = profile.headline;
@@ -1889,11 +2045,17 @@ function handleProfilePictureUpdate(event: CustomEvent) {
 onMounted(() => {
     loadNetworkData();
     // Listen for profile picture updates
-    window.addEventListener('profilePictureUpdated', handleProfilePictureUpdate as EventListener);
+    window.addEventListener(
+        "profilePictureUpdated",
+        handleProfilePictureUpdate as EventListener
+    );
 });
 
 onBeforeUnmount(() => {
-    window.removeEventListener('profilePictureUpdated', handleProfilePictureUpdate as EventListener);
+    window.removeEventListener(
+        "profilePictureUpdated",
+        handleProfilePictureUpdate as EventListener
+    );
 });
 </script>
 
