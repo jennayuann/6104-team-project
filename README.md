@@ -14,7 +14,7 @@
 - [Development Plan — Alpha](development-plan-alpha.md)
 - [Development Plan — Beta](development-plan-beta.md)
 
-### Project Updates
+### Project Updates (Mentor Meeting Records)
 - [Update 1](project-updates/update-1.md)
 - [Update 2](project-updates/update-2.md)
 - [Update 3](project-updates/update-3.md)
@@ -28,8 +28,11 @@
 
 ## Final Checkpoint
 
-### Final Project Report
-- [Final Project Report](FinalReport.md)
+### Design Summary
+- [Design Summary](DesignSummary.md)
+
+### Final Reflection
+- [Final Reflection](FinalReflection.md)
 
 ### Known Issues
 - [Known Issues + Bugs](KnownIssues-Final.md)
