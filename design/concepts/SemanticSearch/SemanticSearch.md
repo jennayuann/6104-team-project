@@ -56,8 +56,15 @@
             * `queryText` is not empty.
         * **effects**:
             * Executes a semantic search for the owner with the given query text (limit defaults to 10) using the external service, filtering on the owner tag so only that user’s indexed items are considered.
+            * Drops results below a minimum semantic score threshold (currently 0.25) to avoid surfacing irrelevant matches.
             * Interprets the returned item identifiers as LinkedIn connection ids, joins them with the `LinkedInImport.connections` state (scoped to accounts owned by the caller), and produces a list of rich connection previews (e.g., `_id`, `firstName`, `lastName`, `headline`, `location`, `currentPosition`, `currentCompany`, `profileUrl`, `profilePictureUrl`, `summary`) along with semantic scores and snippet text.
+            * For results not backed by LinkedInImport.connections, falls back to matching MultiSourceNetwork nodes owned by the user.
             * Deduplicates results by `connectionId`, keeping the highest-scoring entry per id, and omits entries the owner does not have access to.
+    * `reindexAllOwners (): Empty`
+        * **requires**:
+            * txtai semantic service is reachable.
+        * **effects**:
+            * For each distinct owner in IndexedItems, re-sends all of their indexed items to the external semantic search service. Useful when the txtai index has been lost or restarted while the MongoDB-backed metadata remains intact.
 
 * **invariants**:
     * All `resultItems` in any query belong to the same owner's indexed items.
@@ -67,7 +74,7 @@
     * The concept does not assume anything about how semantic similarity is computed.
     * The implementation enforces owner-level privacy by tagging every indexed document with its owner and passing `{ owner }` as the filter payload when querying txtai.
     * Indexing replays the owner’s entire corpus to the external service to keep its index in sync; removing an item only affects the internal store (external removal can be added later if needed).
-    * Restarting the txtai service clears its in-memory index; when this happens, connections must be reindexed (e.g., by re-importing LinkedIn data or running the helper script `scripts/reindex_all_connections.ts`, which rebuilds txtai from the current Mongo collections—this script exists but is not hooked into any automated workflow yet).
+    * Restarting the txtai service clears its in-memory index; when this happens, connections must be reindexed (e.g., by re-importing LinkedIn data or running the helper script `scripts/reindex_all_connections.ts`, or by calling the `reindexAllOwners` method, which rebuilds txtai from the current Mongo collections).
 
 * **integration guidance**:
     * Start the txtai service with the provided `semantic_search_service/app.yml` so that POST `/add`, GET `/index`, and GET `/search` endpoints are available on `SEMANTIC_SERVICE_URL` (default `http://localhost:8001`).

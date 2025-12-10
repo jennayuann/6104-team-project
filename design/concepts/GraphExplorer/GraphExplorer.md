@@ -1,8 +1,8 @@
+**implementation status**: ✅ **Implemented as a frontend-only visualization in `MultiSourceNetworkPage.vue` using the vis-network library. This is a client-side graph exploration interface that renders network data fetched from MultiSourceNetwork.**
+
 * **concept**: GraphExplorer [Viewer, Node]
 * **purpose**: Let a viewer open and adjust an explorable graph view of nodes, including visible nodes, grouping, layout, filters, and optional highlighted paths.
 * **principle**: When a viewer opens a graph view over a set of nodes, they see those nodes laid out, can adjust filters and groupings, and optionally highlight a path.
-
-* **implementation status**: ✅ **Implemented as a frontend-only visualization in `MultiSourceNetworkPage.vue` using the vis-network library. This is a client-side graph exploration interface that renders network data fetched from MultiSourceNetwork.**
 
 * **frontend state** (MultiSourceNetworkPage.vue):
     * Graph visualization state managed in Vue component:

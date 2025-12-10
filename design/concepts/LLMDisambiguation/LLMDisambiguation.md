@@ -1,3 +1,5 @@
+**NOTE: DID NOT END UP IMPLEMENTING**
+
 * **concept**: LLMDisambiguation [Node]
 * **purpose**: Determine whether two nodes in a network represent the same real-world entity by comparing their associated information, enabling the system to detect duplicates and maintain accurate network representations.
 * **principle**: When two nodes are compared, the system first performs fast pre-filtering using string similarity checks (names, companies, locations). If nodes pass the pre-filter, a comparison is created immediately without LLM analysis. LLM analysis is then performed on-demand when requested, generating a similarity assessment. For nodes with matching LinkedIn profile URLs, the system automatically marks them as high-confidence matches. The user can then confirm or reject the assessment, and if confirmed, the nodes can be marked as representing the same entity, allowing downstream concepts to merge or link them appropriately.

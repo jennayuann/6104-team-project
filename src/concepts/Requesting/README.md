@@ -7,12 +7,32 @@ The Requesting concept offers a traditional entrypoint to an application built w
 2. Configure any environment variables you'd like change by adding/editing in your `.env` file (port, timeout, etc.)
 3. Run `deno run start`, and your server will be live!
 
+# Concept State
+* a set of `Requests` with
+  * `_id` Request
+  * `input` { path: String, [key: string]: unknown }
+  * `response?` unknown
+  * `createdAt` Date
+
 # Configuration
 The following environment variables are available:
 - `PORT`: the port to the server binds, default 10000
 - `REQUESTING_BASE_URL`: the base URL prefix for api requests, default "/api"
 - `REQUESTING_TIMEOUT`: the timeout for requests, default 10000ms
 - `REQUESTING_SAVE_RESPONSES`: whether to persist responses or not, default true
+# Passthrough Routes
+
+## Actions
+
+* `request(inputs: { path: String, [key: string]: unknown }): { request: Request }`
+  * **effects**: creates a new Request with the given path and input parameters, persists it, and returns the request id
+
+* `respond({ request: Request, [key: string]: unknown }): { request: Request }`
+  * **requires**: a Request with the given id exists and has no response yet
+  * **effects**: sets the response of the given Request to the provided key-value pairs
+
+* `_awaitResponse({ request: Request }): Array<{ response: unknown }>`
+  * **effects**: returns the response associated with the given request, waiting if necessary up to a configured timeout
 
 # Passthrough Routes
 
@@ -23,7 +43,7 @@ By default, the Requesting concept exposes concept actions directly in the form 
 route = "/api/LikertSurvey/createSurvey"
 ```
 
-will automatically passthrough to the underlying concept action or query: in this case, `LikertSurvey.createSurvey`. 
+will automatically passthrough to the underlying concept action or query: in this case, `LikertSurvey.createSurvey`.
 
 - The request verb must be `POST`
 - The request body is a single JSON record of the specified shape in the concept specification
@@ -66,10 +86,10 @@ Allowing passthrough routes is a natural default that says, "anyone can freely a
 
 then what you need is to **reify requests**. This is the purpose of the Requesting concept: to allow parties to formulate requests that require a response. In other words, we are preventing parties from directly interacting with concepts and giving them the opportunity to form a tangible request instead.
 
-By default, all concepts and their actions/queries will automatically be discovered, and registered as **unverified routes**. You will see a log of these when you first start the server through `deno run start`. 
+By default, all concepts and their actions/queries will automatically be discovered, and registered as **unverified routes**. You will see a log of these when you first start the server through `deno run start`.
 
 **Configuring Passthrough**
-1. Open [passthrough.ts](passthrough.ts) to configure passthrough. 
+1. Open [passthrough.ts](passthrough.ts) to configure passthrough.
 2. For every passthrough route you think makes sense and should be **included**, add it to `const inclusions = {...}` as a key/value pair `"route": "justification"`. For example, you might have `"/api/LikertSurvey/_getSurveyQuestions": "this is a public query"`
 3. For every passthrough route you think should be **excluded**, simply add the route to `const exclusions = [...]`, such as `"/api/LikertSurvey/createSurvey"`
 
