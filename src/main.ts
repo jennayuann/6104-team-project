@@ -24,5 +24,22 @@ Engine.logging = Logging.TRACE;
 // Register synchronizations
 Engine.register(syncs);
 
-// Start a server to provide the Requesting concept with external/system actions.
-startRequestingServer(concepts);
+// On startup, rebuild the semantic index in txtai from any
+// previously stored IndexedItems, so that semantic search keeps
+// working even if the txtai service restarts.
+const bootstrap = async () => {
+  try {
+    if ("SemanticSearch" in concepts) {
+      // @ts-ignore Instrumented concept instance
+      await (concepts as any).SemanticSearch.reindexAllOwners({});
+    }
+  } catch (err) {
+    console.error("[SemanticSearch] Failed to reindex on startup:", err);
+  }
+
+  // Start a server to provide the Requesting concept with external/system actions.
+  startRequestingServer(concepts);
+};
+
+// Deno supports top-level await; ensure bootstrap runs before serving.
+await bootstrap();
