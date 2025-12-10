@@ -13,22 +13,15 @@
         </div>
         <div class="card-info">
             <h3 class="card-name">{{ node.displayName }}</h3>
-            <p v-if="node.location" class="card-location">
-                <i class="fa-solid fa-map-marker-alt"></i>
-                {{ node.location }}
-            </p>
-            <p v-if="node.currentJob" class="card-job">
-                {{ node.currentJob }}
-            </p>
+            <div v-if="node.currentJob || node.company" class="card-job-company">
+                <p v-if="node.currentJob" class="card-job">{{ node.currentJob }}</p>
+                <p v-if="node.company" class="card-company">{{ node.company }}</p>
+            </div>
         </div>
     </div>
 </template>
 
 <script setup lang="ts">
-import { useAvatarStore } from "@/stores/useAvatarStore";
-
-const avatarStore = useAvatarStore();
-
 defineProps<{
     node: {
         id: string;
@@ -37,6 +30,7 @@ defineProps<{
         initials: string;
         location?: string;
         currentJob?: string;
+        company?: string;
     };
 }>();
 
@@ -108,23 +102,23 @@ function handleImageError(event: Event) {
     color: #1e293b;
 }
 
-.card-location {
-    margin: 0 0 0.5rem;
-    font-size: 0.875rem;
-    color: #64748b;
-    display: flex;
-    align-items: center;
-    gap: 0.375rem;
-}
-
-.card-location i {
-    font-size: 0.75rem;
+.card-job-company {
+    margin: 0;
 }
 
 .card-job {
     margin: 0;
     font-size: 0.875rem;
     color: #475569;
-    line-height: 1.5;
+    line-height: 1.4;
+    font-weight: 500;
+}
+
+.card-company {
+    margin: 0;
+    font-size: 0.875rem;
+    color: #475569;
+    line-height: 1.4;
+    font-weight: 500;
 }
 </style>
