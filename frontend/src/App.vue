@@ -18,9 +18,6 @@
         <div class="auth-status">
           <div class="user-chip">
             <img class="avatar-chip" :src="avatar.src" alt="Profile avatar" @click="showSettings = true" style="cursor: pointer;" />
-            <button type="button" class="settings-btn" @click="showSettings = true" title="Settings">
-              ⚙️
-            </button>
           </div>
           <button type="button" @click="handleLogout">Logout</button>
         </div>
