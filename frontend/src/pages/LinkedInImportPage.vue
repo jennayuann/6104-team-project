@@ -317,7 +317,7 @@ function formatError(error: unknown): string {
 }
 
 .file-input-label:hover:not(.disabled) {
-    background: var(--primary-hover, #0056b3);
+    background: #003B6D;
 }
 
 .file-input-label.disabled {
@@ -352,7 +352,7 @@ function formatError(error: unknown): string {
 }
 
 .upload-btn:hover:not(:disabled) {
-    background: var(--success-hover, #218838);
+    background: #003B6D;
 }
 
 .upload-btn:disabled {

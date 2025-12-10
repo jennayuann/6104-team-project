@@ -155,8 +155,15 @@ async function loadProfile() {
       avatarStore.setForUser(auth.userId, pictureUrl);
       previewUrl.value = pictureUrl;
     } else {
-      // Use stored avatar or default
-      previewUrl.value = avatarStore.getForUser(auth.userId);
+      // Use stored avatar, or letter-based avatar, or default
+      const storedAvatar = avatarStore.getForUser(auth.userId);
+      if (storedAvatar === avatarStore.DEFAULT_AVATAR) {
+        // Use letter-based avatar based on username
+        const username = auth.username || auth.userId || "";
+        previewUrl.value = avatarStore.getLetterAvatar(username);
+      } else {
+        previewUrl.value = storedAvatar;
+      }
     }
   } catch (error) {
     const message = error instanceof Error
@@ -227,6 +234,11 @@ async function handleSavePhoto() {
 
     // Reload profile to get updated data
     await loadProfile();
+
+    // Dispatch custom event to notify other components (like HomePage) to refresh
+    window.dispatchEvent(new CustomEvent('profilePictureUpdated', {
+      detail: { userId: auth.userId }
+    }));
 
     banner.value = { type: "success", message: "Profile photo saved successfully!" };
   } catch (error) {

@@ -26,6 +26,7 @@ interface PublicProfileConceptQueryResult {
   headline: string;
   attributes: string[];
   links: string[];
+  profilePictureUrl?: string;
 }
 
 export default class PublicProfileConceptConcept {
@@ -204,7 +205,7 @@ export default class PublicProfileConceptConcept {
           attributes: doc.attributes,
           links: doc.links,
           profilePictureUrl: doc.profilePictureUrl,
-        } as PublicProfileConceptQueryResult & { profilePictureUrl?: string },
+        } as PublicProfileConceptQueryResult,
       }];
     } catch (e) {
       const err = e instanceof Error ? e : new Error(String(e));

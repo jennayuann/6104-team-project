@@ -100,7 +100,7 @@ const hasNodes = computed(() => {
 function getDegreeColor(nodeId: string, nodeDegrees: Map<string, number>): string {
     const degree = nodeDegrees.get(nodeId) ?? 999;
     const isRoot = nodeId === props.rootNodeId || nodeId === props.currentUserId;
-    
+
     if (isRoot) {
         return "#dc2626"; // Red for root/self node
     } else if (degree === 1) {
@@ -120,7 +120,7 @@ function getDegreeColor(nodeId: string, nodeDegrees: Map<string, number>): strin
 function getNodeSize(nodeId: string, nodeDegrees: Map<string, number>): number {
     const degree = nodeDegrees.get(nodeId) ?? 999;
     const isRoot = nodeId === props.rootNodeId || nodeId === props.currentUserId;
-    
+
     if (isRoot) {
         return 70; // Largest for root
     } else if (degree === 1) {
@@ -241,7 +241,7 @@ async function renderNetwork() {
     // Create nodes
     const nodeIds = Object.keys(props.adjacency);
     const allNodeIds = new Set<string>(nodeIds);
-    
+
     // Collect all target nodes
     for (const nodeId of nodeIds) {
         const nodeEdges = props.adjacency[nodeId] || [];
@@ -276,6 +276,24 @@ async function renderNetwork() {
             }
         }
 
+        // For root node: ensure we use profile picture from PublicProfile if available
+        let avatarUrl = profileData.avatarUrl;
+        if (nodeId === props.currentUserId && profileData.profile) {
+            const publicProfile = profileData.profile as { profilePictureUrl?: string } | undefined;
+            if (publicProfile?.profilePictureUrl) {
+                avatarUrl = publicProfile.profilePictureUrl;
+            }
+        }
+
+        // Use letter-based avatar if no profile picture is available
+        if (avatarUrl === avatarStore.DEFAULT_AVATAR) {
+            const nodeLabel =
+                nodeId === props.currentUserId
+                    ? auth.username || profileData.username || nodeId
+                    : profileData.username || nodeId;
+            avatarUrl = avatarStore.getLetterAvatar(nodeLabel);
+        }
+
         const nodeColor = getDegreeColor(nodeId, nodeDegrees);
         const nodeLabel =
             nodeId === props.currentUserId
@@ -286,7 +304,7 @@ async function renderNetwork() {
             id: nodeId,
             label: nodeLabel,
             shape: "circularImage",
-            image: profileData.avatarUrl,
+            image: avatarUrl,
             brokenImage: avatarStore.DEFAULT_AVATAR,
             borderWidth: isRoot(nodeId) ? 6 : 4,
             borderColor: nodeColor,
@@ -718,4 +736,3 @@ onMounted(() => {
     }
 }
 </style>
-

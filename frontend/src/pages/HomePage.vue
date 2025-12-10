@@ -550,7 +550,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from "vue";
+import { ref, computed, onMounted, onBeforeUnmount, watch } from "vue";
 import {
     MultiSourceNetworkAPI,
     type AdjacencyMap,
@@ -872,13 +872,13 @@ const selectedProfileData = computed(() => {
         lastName: linkedInConn?.lastName || profileData.lastName || "",
         headline: linkedInConn?.headline || profileData.headline || "",
         currentCompany:
-            linkedInConn?.currentCompany || 
-            profileData.currentCompany || 
-            profileData.company || 
+            linkedInConn?.currentCompany ||
+            profileData.currentCompany ||
+            profileData.company ||
             "",
-        currentPosition: 
-            linkedInConn?.currentPosition || 
-            profileData.currentPosition || 
+        currentPosition:
+            linkedInConn?.currentPosition ||
+            profileData.currentPosition ||
             "",
         location:
             linkedInConn?.location ||
@@ -940,7 +940,6 @@ async function performSemanticSearch() {
                 }
 
                 const conn = linkedInConnections.value[connectionId];
-                const prof = nodeProfiles.value[connectionId];
 
                 let displayName: string;
                 let avatarUrl: string;
@@ -954,7 +953,7 @@ async function performSemanticSearch() {
                     const fullName = `${firstName} ${lastName}`.trim();
                     displayName = fullName || conn.headline || connectionId;
                     avatarUrl =
-                        conn.profilePictureUrl || avatarStore.DEFAULT_AVATAR;
+                        conn.profilePictureUrl || avatarStore.getLetterAvatar(displayName);
                     location = conn.location;
                     currentJob = conn.currentPosition || conn.headline;
                     company = conn.currentCompany;
@@ -975,7 +974,10 @@ async function performSemanticSearch() {
                         displayName = profileData.username || connectionId;
                     }
 
-                    avatarUrl = profileData.avatarUrl;
+                    // Use letter-based avatar if no profile picture
+                    avatarUrl = profileData.avatarUrl === avatarStore.DEFAULT_AVATAR
+                        ? avatarStore.getLetterAvatar(displayName)
+                        : profileData.avatarUrl;
                     location = profData.location;
                     currentJob = profData.headline;
                     company = profData.company;
@@ -1335,9 +1337,10 @@ function getInitials(text: string): string {
     return text.substring(0, 2).toUpperCase();
 }
 
-async function fetchNodeProfiles(nodeIds: string[]) {
+async function fetchNodeProfiles(nodeIds: string[], forceRefresh: string[] = []) {
     const profilePromises = nodeIds.map(async (nodeId) => {
-        if (nodeProfiles.value[nodeId]) return;
+        // Skip if already cached, unless we're forcing a refresh for this node
+        if (nodeProfiles.value[nodeId] && !forceRefresh.includes(nodeId)) return;
 
         let profile: PublicProfile | undefined;
         let username = nodeId;
@@ -1362,8 +1365,9 @@ async function fetchNodeProfiles(nodeIds: string[]) {
 
             if (profile) {
                 const displayName = profile.headline || username;
-                if ((profile as any).profilePictureUrl) {
-                    avatarUrl = (profile as any).profilePictureUrl;
+                // Use profile picture from PublicProfile if available
+                if (profile.profilePictureUrl) {
+                    avatarUrl = profile.profilePictureUrl;
                     avatarStore.setForUser(nodeId, avatarUrl);
                 } else {
                     avatarUrl = avatarStore.getForUser(nodeId);
@@ -1484,7 +1488,7 @@ async function loadNetworkData() {
                         ...nd,
                     },
                     avatarUrl:
-                        (nd.avatarUrl as string) || avatarStore.DEFAULT_AVATAR,
+                        (nd.avatarUrl as string) || avatarStore.getLetterAvatar(nd.label || nd.firstName || id),
                     username: (nd.label as string) || id,
                 };
             });
@@ -1492,7 +1496,8 @@ async function loadNetworkData() {
             console.warn("getNodes failed:", e);
         }
 
-        await fetchNodeProfiles(Array.from(allNodeIds));
+        // Always force refresh for current user to get latest profile picture
+        await fetchNodeProfiles(Array.from(allNodeIds), auth.userId ? [auth.userId] : []);
 
         const nodes: Array<{
             id: string;
@@ -1521,9 +1526,10 @@ async function loadNetworkData() {
                 const fullName = `${firstName} ${lastName}`.trim();
 
                 displayName = fullName || linkedInConn.headline || nodeId;
+                // Use profile picture if available, otherwise use letter-based avatar
                 avatarUrl =
                     linkedInConn.profilePictureUrl ||
-                    avatarStore.DEFAULT_AVATAR;
+                    avatarStore.getLetterAvatar(displayName);
                 location = linkedInConn.location;
                 currentJob = linkedInConn.currentPosition || linkedInConn.headline;
                 company = linkedInConn.currentCompany;
@@ -1554,7 +1560,23 @@ async function loadNetworkData() {
                     displayName = profileData.username || nodeId;
                 }
 
-                avatarUrl = profileData.avatarUrl;
+                // For root node (current user), prioritize profile picture from PublicProfile
+                if (nodeId === auth.userId) {
+                    const publicProfile = profileData.profile as PublicProfile | undefined;
+                    if (publicProfile?.profilePictureUrl) {
+                        avatarUrl = publicProfile.profilePictureUrl;
+                    } else {
+                        // Use letter-based avatar if no profile picture
+                        avatarUrl = profileData.avatarUrl === avatarStore.DEFAULT_AVATAR
+                            ? avatarStore.getLetterAvatar(displayName)
+                            : profileData.avatarUrl;
+                    }
+                } else {
+                    // Use letter-based avatar if no profile picture
+                    avatarUrl = profileData.avatarUrl === avatarStore.DEFAULT_AVATAR
+                        ? avatarStore.getLetterAvatar(displayName)
+                        : profileData.avatarUrl;
+                }
                 location = profile.location;
                 currentJob = profile.headline;
                 company = profile.company;
@@ -1612,8 +1634,30 @@ watch(searchMode, (newMode) => {
     }
 });
 
+// Listen for profile picture updates
+function handleProfilePictureUpdate(event: CustomEvent) {
+    const userId = event.detail?.userId;
+    if (userId && userId === auth.userId) {
+        // Clear cache for current user and refresh
+        delete nodeProfiles.value[userId];
+        // Force refresh the current user's profile
+        fetchNodeProfiles([userId], [userId]).then(() => {
+            // Rebuild nodes to update avatarUrl
+            if (adjacency.value) {
+                loadNetworkData();
+            }
+        });
+    }
+}
+
 onMounted(() => {
     loadNetworkData();
+    // Listen for profile picture updates
+    window.addEventListener('profilePictureUpdated', handleProfilePictureUpdate as EventListener);
+});
+
+onBeforeUnmount(() => {
+    window.removeEventListener('profilePictureUpdated', handleProfilePictureUpdate as EventListener);
 });
 </script>
 
