@@ -24,12 +24,24 @@
 ### User Testing
 [User Testing](UserTesting.md)
 
+<br>
+
+## Final Checkpoint
+
 ### Final Project Report
-[Project Report](FinalReport.md)
+- [Final Project Report](FinalReport.md)
+
+### Known Issues
+- [Known Issues + Bugs](KnownIssues-Final.md)
+
+### Sample LinkedIn CSV Files
+- [Larger Sample LinkedIn CSV File](larger_sample_linkedin_connections.csv)
+
+- [Smaller Sample LinkedIn CSV File](sample_linkedin_connections.csv)
 
 <br>
 
-# Beta Checkpoint
+## Beta Checkpoint
 
 ### Summary of Beta Updates
 - **Core concepts implemented in the backend**: `PublicProfile`, `UserAuthentication`, `MultiSourceNetwork`, `LinkedInImport`, and `SemanticSearch` are implemented as working backend concepts and surfaced via the API.
