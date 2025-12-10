@@ -90,21 +90,21 @@
             <div class="search-meta">
                 <div class="active-filters-container" v-if="activeFilters.length > 0">
                     <div class="active-filters">
-                        <div
-                            v-for="(filter, index) in activeFilters"
-                            :key="index"
-                            class="filter-chip"
+                    <div
+                        v-for="(filter, index) in activeFilters"
+                        :key="index"
+                        class="filter-chip"
+                    >
+                        <span>{{ filter.label }}: {{ filter.value }}</span>
+                        <button
+                            @click="removeFilter(index)"
+                            class="filter-remove"
+                            aria-label="Remove filter"
                         >
-                            <span>{{ filter.label }}: {{ filter.value }}</span>
-                            <button
-                                @click="removeFilter(index)"
-                                class="filter-remove"
-                                aria-label="Remove filter"
-                            >
                                 <p class="fa-solid fa-xmark">x</p>
-                            </button>
-                        </div>
+                        </button>
                     </div>
+                </div>
                     <button
                         @click="clearAllFilters"
                         class="clear-all-filters-btn"
@@ -177,13 +177,13 @@
                 </div>
                 <template v-else>
                     <div class="cards-grid" :style="{ gridTemplateColumns: `repeat(${cardsPerRow}, 1fr)` }">
-                        <ConnectionCard
+                    <ConnectionCard
                             v-for="node in paginatedNodes"
-                            :key="node.id"
-                            :node="node"
-                            @click="openProfileModal(node.id)"
-                        />
-                    </div>
+                        :key="node.id"
+                        :node="node"
+                        @click="openProfileModal(node.id)"
+                    />
+                </div>
                     <!-- Pagination Controls -->
                     <div v-if="totalPages > 1" class="pagination-controls">
                         <button
@@ -956,6 +956,48 @@ const selectedProfileData = computed(() => {
         return null;
     }
 
+    // First check if it's a semantic search result
+    const semanticResult = semanticResults.value.find((r) => r.id === selectedProfileId.value);
+    if (semanticResult) {
+        const linkedInConn = linkedInConnections.value[selectedProfileId.value];
+        const profile = nodeProfiles.value[selectedProfileId.value];
+        const profileData = profile?.profile || {};
+
+        return {
+            id: semanticResult.id,
+            displayName: semanticResult.displayName,
+            firstName: linkedInConn?.firstName || profileData.firstName || "",
+            lastName: linkedInConn?.lastName || profileData.lastName || "",
+            headline: linkedInConn?.headline || profileData.headline || "",
+            currentCompany:
+                linkedInConn?.currentCompany ||
+                profileData.currentCompany ||
+                profileData.company ||
+                semanticResult.company ||
+                "",
+            currentPosition:
+                linkedInConn?.currentPosition ||
+                profileData.currentPosition ||
+                semanticResult.currentJob ||
+                "",
+            location:
+                linkedInConn?.location ||
+                profileData.location ||
+                semanticResult.location ||
+                "",
+            industry: linkedInConn?.industry || profileData.industry || "",
+            summary: linkedInConn?.summary || profileData.summary || "",
+            profileUrl: linkedInConn?.profileUrl || profileData.profileUrl || "",
+            avatarUrl: semanticResult.avatarUrl,
+            initials: semanticResult.initials,
+            skills: linkedInConn?.skills || profileData.skills || [],
+            education: linkedInConn?.education || profileData.education || [],
+            experience: linkedInConn?.experience || profileData.experience || [],
+            tags: profileData.tags || [],
+        };
+    }
+
+    // Otherwise, check allNodes (text search mode)
     const node = allNodes.value.find((n) => n.id === selectedProfileId.value);
     if (!node) return null;
 
@@ -1048,58 +1090,17 @@ async function performSemanticSearch() {
                     await fetchNodeProfiles([connectionId]);
                 }
 
-                const conn = linkedInConnections.value[connectionId];
-
-                let displayName: string;
-                let avatarUrl: string;
-                let location: string | undefined;
-                let currentJob: string | undefined;
-                let company: string | undefined;
-
-                if (conn) {
-                    const firstName = conn.firstName || "";
-                    const lastName = conn.lastName || "";
-                    const fullName = `${firstName} ${lastName}`.trim();
-                    displayName = fullName || conn.headline || connectionId;
-                    avatarUrl =
-                        conn.profilePictureUrl || avatarStore.getLetterAvatar(displayName);
-                    location = conn.location;
-                    currentJob = conn.currentPosition || conn.headline;
-                    company = conn.currentCompany;
-                } else {
-                    const profileData = nodeProfiles.value[connectionId] || {
-                        avatarUrl: "",
-                        username: connectionId,
-                    };
-                    const profData = profileData.profile || {};
-
-                    const first = (profData.firstName || "").trim();
-                    const last = (profData.lastName || "").trim();
-                    if (first || last) {
-                        displayName = `${first} ${last}`.trim();
-                    } else if (profData.headline) {
-                        displayName = profData.headline;
-                    } else {
-                        displayName = profileData.username || connectionId;
-                    }
-
-                    // Use empty string if avatar is default so initials will show
-                    avatarUrl = profileData.avatarUrl === avatarStore.DEFAULT_AVATAR
-                        ? ""
-                        : profileData.avatarUrl;
-                    location = profData.location;
-                    currentJob = profData.headline;
-                    company = profData.company;
-                }
+                // Use the same extraction logic as non-smart search
+                const nodeData = extractNodeData(connectionId);
 
                 return {
                     id: connectionId,
-                    displayName,
-                    avatarUrl,
-                    initials: getInitials(displayName),
-                    location,
-                    currentJob,
-                    company,
+                    displayName: nodeData.displayName,
+                    avatarUrl: nodeData.avatarUrl,
+                    initials: getInitials(nodeData.displayName),
+                    location: nodeData.location,
+                    currentJob: nodeData.currentJob,
+                    company: nodeData.company,
                     sources: [],
                     score: result.score,
                 };
@@ -1127,8 +1128,8 @@ function handleSearchInput() {
         // Only search when user clicks the search button or presses Enter
         // Clear results if query is empty
         if (!searchQuery.value.trim()) {
-            semanticResults.value = [];
-        }
+                semanticResults.value = [];
+            }
     }
 }
 
@@ -1326,9 +1327,24 @@ function handleImageError(event: Event) {
     }
 }
 
-function openProfileModal(nodeId: string) {
+async function openProfileModal(nodeId: string) {
     selectedProfileId.value = nodeId;
     isEditingProfile.value = false;
+
+    // Fetch profile data if not already available (especially for semantic search results)
+    if (!nodeProfiles.value[nodeId] || !linkedInConnections.value[nodeId]) {
+        try {
+            await fetchNodeProfiles([nodeId]);
+            // Also fetch LinkedIn connection data if available
+            const profile = nodeProfiles.value[nodeId];
+            if (profile?.profile?.profileUrl) {
+                // Try to get LinkedIn connection data
+                // This might need to be fetched separately if not already in linkedInConnections
+            }
+        } catch (error) {
+            console.error("Error fetching profile data:", error);
+        }
+    }
 }
 
 function closeProfileModal() {
@@ -1452,15 +1468,15 @@ async function saveProfile() {
         const headline = editProfileForm.value.headline || editProfileForm.value.jobTitle || "";
 
         const updateMeta = {
-            firstName: editProfileForm.value.firstName.trim(),
-            lastName: editProfileForm.value.lastName.trim(),
-            label: label,
-            headline: headline,
-            location: editProfileForm.value.location.trim() || undefined,
-            currentCompany: editProfileForm.value.company.trim() || undefined,
-            currentPosition: editProfileForm.value.jobTitle.trim() || undefined,
-            avatarUrl: editProfileForm.value.avatarUrl || undefined,
-            profilePictureUrl: editProfileForm.value.avatarUrl || undefined,
+                firstName: editProfileForm.value.firstName.trim(),
+                lastName: editProfileForm.value.lastName.trim(),
+                label: label,
+                headline: headline,
+                location: editProfileForm.value.location.trim() || undefined,
+                currentCompany: editProfileForm.value.company.trim() || undefined,
+                currentPosition: editProfileForm.value.jobTitle.trim() || undefined,
+                avatarUrl: editProfileForm.value.avatarUrl || undefined,
+                profilePictureUrl: editProfileForm.value.avatarUrl || undefined,
         };
 
         // Check if this is the user's own profile node
@@ -1560,8 +1576,8 @@ async function saveProfile() {
             }
 
             // If there's still an error after all retries
-            if (nodeResult.error) {
-                throw new Error(nodeResult.error);
+        if (nodeResult.error) {
+            throw new Error(nodeResult.error);
             }
         }
 
@@ -1584,6 +1600,83 @@ function getInitials(text: string): string {
     if (trimmed.length === 0) return "?";
     // Return only the first letter
     return trimmed[0].toUpperCase();
+}
+
+// Helper function to extract node data consistently for both search modes
+function extractNodeData(nodeId: string): {
+    displayName: string;
+    avatarUrl: string;
+    location?: string;
+    currentJob?: string;
+    company?: string;
+} {
+    const linkedInConn = linkedInConnections.value[nodeId];
+
+    let displayName: string;
+    let avatarUrl: string;
+    let location: string | undefined;
+    let currentJob: string | undefined;
+    let company: string | undefined;
+
+    if (linkedInConn) {
+        const firstName = linkedInConn.firstName || "";
+        const lastName = linkedInConn.lastName || "";
+        const fullName = `${firstName} ${lastName}`.trim();
+
+        displayName = fullName || linkedInConn.headline || nodeId;
+        // Use profile picture if available, otherwise use letter-based avatar
+        avatarUrl =
+            linkedInConn.profilePictureUrl ||
+            avatarStore.getLetterAvatar(displayName);
+        location = linkedInConn.location;
+        currentJob = linkedInConn.currentPosition || linkedInConn.headline;
+        company = linkedInConn.currentCompany;
+    } else {
+        const profileData = nodeProfiles.value[nodeId] || {
+            avatarUrl: "",
+            username: nodeId,
+        };
+        const profile = profileData.profile || {};
+
+        const first = (profile.firstName || "").trim();
+        const last = (profile.lastName || "").trim();
+        if (first || last) {
+            displayName = `${first} ${last}`.trim();
+        } else if (profile.headline) {
+            displayName = profile.headline;
+        } else {
+            displayName = profileData.username || nodeId;
+        }
+
+        // For root node (current user), prioritize profile picture from PublicProfile
+        if (nodeId === auth.userId) {
+            const publicProfile = profile as PublicProfile | undefined;
+            if (publicProfile?.profilePictureUrl) {
+                avatarUrl = publicProfile.profilePictureUrl;
+            } else {
+                // Use empty string if avatar is default so initials will show
+                avatarUrl = profileData.avatarUrl === avatarStore.DEFAULT_AVATAR
+                    ? ""
+                    : profileData.avatarUrl;
+            }
+        } else {
+            // Use empty string if avatar is default so initials will show
+            avatarUrl = profileData.avatarUrl === avatarStore.DEFAULT_AVATAR
+                ? ""
+                : profileData.avatarUrl;
+        }
+        location = profile.location;
+        currentJob = profile.currentPosition || profile.headline;
+        company = profile.company || profile.currentCompany;
+    }
+
+    return {
+        displayName,
+        avatarUrl,
+        location,
+        currentJob,
+        company,
+    };
 }
 
 async function fetchNodeProfiles(nodeIds: string[], forceRefresh: string[] = []) {
@@ -1763,72 +1856,20 @@ async function loadNetworkData() {
         for (const nodeId of allNodeIds) {
             const linkedInConn = linkedInConnections.value[nodeId];
 
-            let displayName: string;
-            let avatarUrl: string;
-            let location: string | undefined;
-            let currentJob: string | undefined;
-            let company: string | undefined;
+            // Use the same extraction logic as semantic search
+            const nodeData = extractNodeData(nodeId);
 
+            // Update nodeProfiles cache if we have LinkedIn connection data
             if (linkedInConn) {
-                const firstName = linkedInConn.firstName || "";
-                const lastName = linkedInConn.lastName || "";
-                const fullName = `${firstName} ${lastName}`.trim();
-
-                displayName = fullName || linkedInConn.headline || nodeId;
-                // Use profile picture if available, otherwise use letter-based avatar
-                avatarUrl =
-                    linkedInConn.profilePictureUrl ||
-                    avatarStore.getLetterAvatar(displayName);
-                location = linkedInConn.location;
-                currentJob = linkedInConn.currentPosition || linkedInConn.headline;
-                company = linkedInConn.currentCompany;
-
                 nodeProfiles.value[nodeId] = {
                     profile: {
                         headline: linkedInConn.headline,
                         company: linkedInConn.currentCompany,
                         location: linkedInConn.location,
                     },
-                    avatarUrl,
-                    username: displayName,
+                    avatarUrl: nodeData.avatarUrl,
+                    username: nodeData.displayName,
                 };
-            } else {
-                const profileData = nodeProfiles.value[nodeId] || {
-                    avatarUrl: "",
-                    username: nodeId,
-                };
-                const profile = profileData.profile || {};
-
-                const first = (profile.firstName || "").trim();
-                const last = (profile.lastName || "").trim();
-                if (first || last) {
-                    displayName = `${first} ${last}`.trim();
-                } else if (profile.headline) {
-                    displayName = profile.headline;
-                } else {
-                    displayName = profileData.username || nodeId;
-                }
-
-                // For root node (current user), prioritize profile picture from PublicProfile
-                if (nodeId === auth.userId) {
-                    const publicProfile = profileData.profile as PublicProfile | undefined;
-                    if (publicProfile?.profilePictureUrl) {
-                        avatarUrl = publicProfile.profilePictureUrl;
-                    } else {
-                        // Use empty string if avatar is default so initials will show
-                        avatarUrl = profileData.avatarUrl === avatarStore.DEFAULT_AVATAR
-                            ? ""
-                            : profileData.avatarUrl;
-                    }
-                } else {
-                    // Use empty string if avatar is default so initials will show
-                    avatarUrl = profileData.avatarUrl === avatarStore.DEFAULT_AVATAR
-                        ? ""
-                        : profileData.avatarUrl;
-                }
-                location = profile.location;
-                currentJob = profile.headline;
-                company = profile.company;
             }
 
             const sources = new Set<string>();
@@ -1854,13 +1895,13 @@ async function loadNetworkData() {
 
             nodes.push({
                 id: nodeId,
-                displayName,
+                displayName: nodeData.displayName,
                 username: nodeProfiles.value[nodeId]?.username,
-                avatarUrl,
-                initials: getInitials(displayName),
-                location,
-                currentJob,
-                company,
+                avatarUrl: nodeData.avatarUrl,
+                initials: getInitials(nodeData.displayName),
+                location: nodeData.location,
+                currentJob: nodeData.currentJob,
+                company: nodeData.company,
                 sources: Array.from(sources),
             });
         }
