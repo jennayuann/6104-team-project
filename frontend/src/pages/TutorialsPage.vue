@@ -226,20 +226,21 @@
 
 <style scoped>
 .tutorials-page {
-    max-width: 1200px;
+    max-width: 100%;
     margin: 0 auto;
-    padding: 2rem;
+    padding: 1.5rem 2rem;
+    width: 100%;
 }
 
 .page-header {
     text-align: center;
-    margin-bottom: 3rem;
+    margin-bottom: 2rem;
 }
 
 .page-title {
-    font-size: 2.5rem;
+    font-size: 2rem;
     font-weight: 800;
-    margin: 0 0 1rem;
+    margin: 0 0 0.5rem;
     color: var(--color-navy-900);
 }
 
@@ -250,18 +251,21 @@
 }
 
 .tutorials-container {
-    display: flex;
-    flex-direction: column;
-    gap: 2rem;
+    display: grid;
+    grid-template-columns: repeat(2, 2fr);
+    gap: 1.5rem;
+    width: 100%;
 }
 
 .tutorial-card {
     background: white;
     border-radius: 1rem;
-    padding: 2.5rem;
+    padding: 1.5rem;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
     border: 1px solid rgba(15, 23, 42, 0.08);
     transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
 }
 
 .tutorial-card:hover {
@@ -270,15 +274,15 @@
 }
 
 .tutorial-icon {
-    font-size: 3rem;
-    margin-bottom: 1rem;
+    font-size: 2.5rem;
+    margin-bottom: 0.75rem;
     text-align: center;
 }
 
 .tutorial-title {
-    font-size: 1.75rem;
+    font-size: 1.5rem;
     font-weight: 700;
-    margin: 0 0 1rem;
+    margin: 0 0 0.75rem;
     color: var(--color-navy-900);
     text-align: center;
 }
@@ -288,22 +292,22 @@
 }
 
 .tutorial-intro {
-    font-size: 1.125rem;
+    font-size: 1rem;
     color: #64748b;
-    margin: 0 0 1.5rem;
-    line-height: 1.6;
+    margin: 0 0 1rem;
+    line-height: 1.5;
     text-align: center;
 }
 
 .tutorial-steps {
-    margin: 0 0 1.5rem;
-    padding-left: 1.5rem;
-    line-height: 1.8;
+    margin: 0 0 1rem;
+    padding-left: 1.25rem;
+    line-height: 1.6;
 }
 
 .tutorial-steps li {
-    margin-bottom: 1rem;
-    font-size: 1rem;
+    margin-bottom: 0.5rem;
+    font-size: 0.9375rem;
     color: #1e293b;
 }
 
@@ -327,12 +331,12 @@
 .tutorial-tip {
     background: #f8fafc;
     border-left: 4px solid var(--color-navy-600);
-    padding: 1rem 1.25rem;
+    padding: 0.75rem 1rem;
     border-radius: 0.5rem;
     display: flex;
     gap: 0.75rem;
     align-items: flex-start;
-    margin-top: 1.5rem;
+    margin-top: 1rem;
 }
 
 .tutorial-tip i {
@@ -357,12 +361,12 @@
 .coming-soon-notice {
     background: #fff7ed;
     border-left: 4px solid #f59e0b;
-    padding: 1.25rem 1.5rem;
+    padding: 1rem 1.25rem;
     border-radius: 0.5rem;
     display: flex;
-    gap: 1rem;
+    gap: 0.75rem;
     align-items: flex-start;
-    margin-top: 1rem;
+    margin-top: 0.75rem;
 }
 
 .coming-soon-notice i {
@@ -389,6 +393,10 @@
         padding: 1rem;
     }
 
+    .tutorials-container {
+        grid-template-columns: 1fr;
+    }
+
     .tutorial-card {
         padding: 1.5rem;
     }
@@ -402,4 +410,3 @@
     }
 }
 </style>
-

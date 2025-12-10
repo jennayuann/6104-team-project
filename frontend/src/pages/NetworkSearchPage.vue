@@ -91,21 +91,30 @@
 
                 <!-- Active Filters and Results Count -->
                 <div class="filters-section">
-                    <div class="active-filters">
-                        <div
-                            v-for="(filter, index) in activeFilters"
-                            :key="index"
-                            class="filter-chip"
-                        >
-                            <span>{{ filter.label }}: {{ filter.value }}</span>
-                            <button
-                                @click="removeFilter(index)"
-                                class="filter-remove"
-                                aria-label="Remove filter"
+                    <div class="active-filters-container" v-if="activeFilters.length > 0">
+                        <div class="active-filters">
+                            <div
+                                v-for="(filter, index) in activeFilters"
+                                :key="index"
+                                class="filter-chip"
                             >
-                                <i class="fa-solid fa-xmark"></i>
-                            </button>
+                                <span>{{ filter.label }}: {{ filter.value }}</span>
+                                <button
+                                    @click="removeFilter(index)"
+                                    class="filter-remove"
+                                    aria-label="Remove filter"
+                                >
+                                    <i class="fa-solid fa-xmark"></i>
+                                </button>
+                            </div>
                         </div>
+                        <button
+                            @click="clearAllFilters"
+                            class="clear-all-filters-btn"
+                            aria-label="Clear all filters"
+                        >
+                            Clear all
+                        </button>
                     </div>
                     <p class="results-count">
                         {{
@@ -1198,6 +1207,10 @@ function removeFilter(index: number) {
     activeFilters.value.splice(index, 1);
 }
 
+function clearAllFilters() {
+    activeFilters.value = [];
+}
+
 function hideAutocomplete() {
     setTimeout(() => {
         showAutocompleteDropdown.value = false;
@@ -1868,6 +1881,13 @@ onBeforeUnmount(() => {
     margin-top: 1rem;
 }
 
+.active-filters-container {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
 .active-filters {
     display: flex;
     flex-wrap: wrap;
@@ -1890,22 +1910,53 @@ onBeforeUnmount(() => {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 0.125rem;
-    background: transparent;
-    border: none;
+    padding: 0.375rem;
+    background: #dc2626;
+    border: 1px solid #dc2626;
     cursor: pointer;
-    color: #64748b;
+    color: white;
     transition: all 0.2s ease;
-    border-radius: 0.25rem;
+    border-radius: 50%;
+    width: 1.5rem;
+    height: 1.5rem;
+    flex-shrink: 0;
+    margin-left: 0.25rem;
+    position: relative;
+    z-index: 1;
 }
 
 .filter-remove:hover {
-    background: #cbd5e1;
-    color: #1e293b;
+    background: #b91c1c;
+    border-color: #b91c1c;
+    transform: scale(1.1);
 }
 
 .filter-remove i {
-    font-size: 0.625rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: white;
+    position: relative;
+    z-index: 2;
+    display: block;
+    line-height: 1;
+}
+
+.clear-all-filters-btn {
+    padding: 0.5rem 1rem;
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    border-radius: 0.5rem;
+    color: #475569;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.clear-all-filters-btn:hover {
+    background: #e2e8f0;
+    border-color: #94a3b8;
+    color: #1e293b;
 }
 
 .results-count {
