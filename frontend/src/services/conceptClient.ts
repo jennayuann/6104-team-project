@@ -373,45 +373,6 @@ export interface Comparison {
   updatedAt?: string;
 }
 
-export const LLMDisambiguationAPI = {
-  getPendingComparisons: () =>
-    postConcept<Comparison[]>(
-      "LLMDisambiguation",
-      "_getPendingComparisons",
-      {},
-    ),
-  compareNodes: (payload: {
-    node1: string;
-    node2: string;
-    node1Info?: Record<string, unknown>;
-    node2Info?: Record<string, unknown>;
-  }) =>
-    postConcept<{ comparison: string } | { error: string }>(
-      "LLMDisambiguation",
-      "compareNodes",
-      payload,
-    ),
-  getComparisonDetails: (payload: { comparison: string }) =>
-    postConcept<Comparison[]>(
-      "LLMDisambiguation",
-      "_getComparisonDetails",
-      payload,
-    ),
-  confirmComparison: (payload: {
-    comparison: string;
-    userDecision: "same" | "different";
-  }) =>
-    postConcept<Empty>(
-      "LLMDisambiguation",
-      "confirmComparison",
-      payload,
-    ),
-  mergeNodes: (payload: { comparison: string; keepNode: string }) =>
-    postConcept<Empty>("LLMDisambiguation", "mergeNodes", payload),
-  analyzeComparison: (payload: { comparison: string }) =>
-    postConcept<Empty>("LLMDisambiguation", "analyzeComparison", payload),
-  cancelComparison: (payload: { comparison: string }) =>
-    postConcept<Empty>("LLMDisambiguation", "cancelComparison", payload),
-};
+// LLMDisambiguationAPI removed
 
 // End of concept client

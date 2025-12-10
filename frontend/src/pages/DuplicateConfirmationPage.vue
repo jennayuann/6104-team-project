@@ -3,13 +3,16 @@
     <section class="header card">
       <h2 style="margin-top: 0">Review Potential Duplicates</h2>
       <p class="muted">
-        This page helps you review potential duplicate individuals in your network.
-        <strong>When you click "Compare Connections Now"</strong>, it compares your newly imported LinkedIn connections
-        to existing nodes in your network using AI. High confidence matches (≥85% similarity) are
-        automatically merged. Only medium confidence matches are shown here for your review (low confidence
-        matches are not similar enough to be worth reviewing).
+        This page helps you review potential duplicate individuals in your
+        network.
+        <strong>When you click "Compare Connections Now"</strong>, it compares
+        your newly imported LinkedIn connections to existing nodes in your
+        network using AI. High confidence matches (≥85% similarity) are
+        automatically merged. Only medium confidence matches are shown here for
+        your review (low confidence matches are not similar enough to be worth
+        reviewing).
       </p>
-      <div v-if="!loading && comparisons.length === 0" style="margin-top: 1rem;">
+      <div v-if="!loading && comparisons.length === 0" style="margin-top: 1rem">
         <button
           type="button"
           class="btn-refresh"
@@ -21,11 +24,7 @@
       </div>
     </section>
 
-    <StatusBanner
-      v-if="banner"
-      :type="banner.type"
-      :message="banner.message"
-    />
+    <StatusBanner v-if="banner" :type="banner.type" :message="banner.message" />
 
     <section v-if="loading" class="loading card">
       <p>{{ loadingMessage || "Loading comparisons..." }}</p>
@@ -37,7 +36,8 @@
     <section v-else-if="comparisons.length === 0" class="empty card">
       <p>No pending comparisons found.</p>
       <p class="muted" style="margin-top: 0.5rem">
-        All potential duplicates have been reviewed, or there aren't enough nodes in your network to compare yet.
+        All potential duplicates have been reviewed, or there aren't enough
+        nodes in your network to compare yet.
       </p>
     </section>
 
@@ -49,13 +49,17 @@
       >
         <div class="comparison-header">
           <h3>Potential Match</h3>
-          <div class="confidence-badge" :class="comparison.llmConfidence || 'pending'">
+          <div
+            class="confidence-badge"
+            :class="comparison.llmConfidence || 'pending'"
+          >
             <span v-if="comparison.llmSimilarityScore === undefined">
               Pending Analysis
             </span>
             <span v-else>
-              {{ comparison.llmConfidence || "unknown" }} confidence
-              ({{ Math.round(comparison.llmSimilarityScore * 100) }}% similar)
+              {{ comparison.llmConfidence || "unknown" }} confidence ({{
+                Math.round(comparison.llmSimilarityScore * 100)
+              }}% similar)
             </span>
           </div>
         </div>
@@ -72,12 +76,15 @@
                   <strong>Headline:</strong> {{ comparison.node1Info.headline }}
                 </p>
                 <p v-if="comparison.node1Info?.currentCompany">
-                  <strong>Company:</strong> {{ comparison.node1Info.currentCompany }}
+                  <strong>Company:</strong>
+                  {{ comparison.node1Info.currentCompany }}
                 </p>
                 <p v-if="comparison.node1Info?.location">
                   <strong>Location:</strong> {{ comparison.node1Info.location }}
                 </p>
-                <p class="node-id"><small>ID: {{ comparison.node1 }}</small></p>
+                <p class="node-id">
+                  <small>ID: {{ comparison.node1 }}</small>
+                </p>
               </div>
             </div>
 
@@ -93,27 +100,41 @@
                   <strong>Headline:</strong> {{ comparison.node2Info.headline }}
                 </p>
                 <p v-if="comparison.node2Info?.currentCompany">
-                  <strong>Company:</strong> {{ comparison.node2Info.currentCompany }}
+                  <strong>Company:</strong>
+                  {{ comparison.node2Info.currentCompany }}
                 </p>
                 <p v-if="comparison.node2Info?.location">
                   <strong>Location:</strong> {{ comparison.node2Info.location }}
                 </p>
-                <p class="node-id"><small>ID: {{ comparison.node2 }}</small></p>
+                <p class="node-id">
+                  <small>ID: {{ comparison.node2 }}</small>
+                </p>
               </div>
             </div>
           </div>
 
-          <div v-if="comparison.llmSimilarityScore === undefined" class="reasoning" style="background-color: #fff3cd; border-left-color: #ffc107;">
+          <div
+            v-if="comparison.llmSimilarityScore === undefined"
+            class="reasoning"
+            style="background-color: #fff3cd; border-left-color: #ffc107"
+          >
             <h4>Analysis Pending</h4>
-            <p>This comparison has not been analyzed yet. Click "Analyze with AI" to get similarity assessment.</p>
+            <p>
+              This comparison has not been analyzed yet. Click "Analyze with AI"
+              to get similarity assessment.
+            </p>
             <button
               type="button"
               class="btn-analyze"
               @click="handleAnalyze(comparison)"
               :disabled="processing.has(comparison._id + '_analyze')"
-              style="margin-top: 0.5rem;"
+              style="margin-top: 0.5rem"
             >
-              {{ processing.has(comparison._id + '_analyze') ? "Analyzing..." : "Analyze with AI" }}
+              {{
+                processing.has(comparison._id + "_analyze")
+                  ? "Analyzing..."
+                  : "Analyze with AI"
+              }}
             </button>
           </div>
 
@@ -129,7 +150,9 @@
               @click="handleConfirm(comparison, 'same')"
               :disabled="processing.has(comparison._id)"
             >
-              {{ processing.has(comparison._id) ? "Processing..." : "Same Person" }}
+              {{
+                processing.has(comparison._id) ? "Processing..." : "Same Person"
+              }}
             </button>
             <button
               type="button"
@@ -137,7 +160,11 @@
               @click="handleConfirm(comparison, 'different')"
               :disabled="processing.has(comparison._id)"
             >
-              {{ processing.has(comparison._id) ? "Processing..." : "Different People" }}
+              {{
+                processing.has(comparison._id)
+                  ? "Processing..."
+                  : "Different People"
+              }}
             </button>
             <button
               type="button"
@@ -158,7 +185,7 @@
 import { ref, onMounted } from "vue";
 import StatusBanner from "@/components/StatusBanner.vue";
 import {
-  LLMDisambiguationAPI,
+  // LLMDisambiguationAPI removed
   LinkedInImportAPI,
   MultiSourceNetworkAPI,
   PublicProfileAPI,
@@ -348,7 +375,7 @@ async function loadComparisons() {
     let pending: Comparison[] = [];
     try {
       console.log("[DuplicateConfirmation] Calling getPendingComparisons...");
-      pending = await LLMDisambiguationAPI.getPendingComparisons();
+      // LLMDisambiguationAPI.getPendingComparisons() removed
       console.log("[DuplicateConfirmation] Found", pending.length, "existing pending comparisons");
     } catch (e) {
       console.error("[DuplicateConfirmation] Error loading pending comparisons:", e);
@@ -562,7 +589,7 @@ async function loadComparisons() {
 
       const batchPromises = batch.map(async (pair) => {
         try {
-          const result = await LLMDisambiguationAPI.compareNodes({
+          // LLMDisambiguationAPI.compareNodes removed
             node1: pair.connection._id,
             node2: pair.existingNodeId,
             node1Info: pair.connectionInfo,
@@ -581,7 +608,7 @@ async function loadComparisons() {
           }
 
           // Get the comparison details
-          const [compDetails] = await LLMDisambiguationAPI.getComparisonDetails({
+          // LLMDisambiguationAPI.getComparisonDetails removed
             comparison: result.comparison,
           });
 
@@ -709,7 +736,7 @@ async function handleConfirm(comparison: Comparison, decision: "same" | "differe
 
   try {
     // Confirm the comparison
-    await LLMDisambiguationAPI.confirmComparison({
+    // LLMDisambiguationAPI.confirmComparison removed
       comparison: comparison._id,
       userDecision: decision,
     });
@@ -719,7 +746,7 @@ async function handleConfirm(comparison: Comparison, decision: "same" | "differe
       // Determine which node to keep (prefer node2 as the existing one)
       const keepNode = comparison.node2;
 
-      await LLMDisambiguationAPI.mergeNodes({
+      // LLMDisambiguationAPI.mergeNodes removed
         comparison: comparison._id,
         keepNode,
       });
@@ -779,12 +806,12 @@ async function handleAnalyze(comparison: Comparison) {
   processing.value.add(processingKey);
 
   try {
-    await LLMDisambiguationAPI.analyzeComparison({
+    // LLMDisambiguationAPI.analyzeComparison removed
       comparison: comparison._id,
     });
 
     // Refresh the comparison details
-    const [updated] = await LLMDisambiguationAPI.getComparisonDetails({
+    // LLMDisambiguationAPI.getComparisonDetails removed
       comparison: comparison._id,
     });
 
@@ -836,7 +863,7 @@ async function handleCancel(comparison: Comparison) {
   processing.value.add(comparison._id);
 
   try {
-    await LLMDisambiguationAPI.cancelComparison({
+    // LLMDisambiguationAPI.cancelComparison removed
       comparison: comparison._id,
     });
 
@@ -875,7 +902,7 @@ onMounted(async () => {
     }
 
     // Load all existing pending comparisons and filter out clearly different ones
-    const pending = await LLMDisambiguationAPI.getPendingComparisons();
+    // LLMDisambiguationAPI.getPendingComparisons removed
 
     // Filter out comparisons that are clearly different (don't need user review)
     comparisons.value = pending.filter((comp: Comparison) => {
