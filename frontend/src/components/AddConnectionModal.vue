@@ -70,92 +70,89 @@
                         />
                     </div>
 
-                    <!-- Advanced Connection Options -->
-                    <div class="form-section advanced-section">
-                        <div class="advanced-toggle">
-                            <button
-                                type="button"
-                                @click="showAdvanced = !showAdvanced"
-                                class="advanced-toggle-btn"
-                            >
-                                <i class="fa-solid" :class="showAdvanced ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
-                                <span>Advanced Options</span>
-                            </button>
-                        </div>
-                        <div v-if="showAdvanced" class="advanced-content">
-                            <div class="form-section">
-                                <label class="form-label">Connection Type</label>
-                                <select
-                                    v-model="form.connectionType"
-                                    class="form-input"
-                                >
-                                    <option value="direct">Direct Connection (1st Degree)</option>
-                                    <option value="through">Connected Through Someone Else</option>
-                                </select>
-                                <p class="form-hint">
-                                    {{
-                                        form.connectionType === "direct"
-                                            ? "This person is directly connected to you."
-                                            : "This person is connected to you through another connection."
-                                    }}
-                                </p>
-                            </div>
+                    <!-- Connection Type -->
+                    <div class="form-section">
+                        <label class="form-label">Connection Type</label>
+                        <select
+                            v-model="form.connectionType"
+                            class="form-input"
+                        >
+                            <option value="direct">Direct Connection (1st Degree)</option>
+                            <option value="through">Connected Through Someone Else (2nd Degree)</option>
+                            <option value="3plus">3+ Degree Connection</option>
+                        </select>
+                        <p class="form-hint">
+                            {{
+                                form.connectionType === "direct"
+                                    ? "This person is directly connected to you."
+                                    : form.connectionType === "through"
+                                    ? "This person is connected to you through another connection (2nd degree)."
+                                    : "This person is 3+ degrees away. No direct edge will be created from you to the intermediate person or to this person."
+                            }}
+                        </p>
+                    </div>
 
-                            <div
-                                v-if="form.connectionType === 'through'"
-                                class="form-section"
+                    <!-- Connected Through (shown only for 2nd and 3+ degree) -->
+                    <div
+                        v-if="form.connectionType === 'through' || form.connectionType === '3plus'"
+                        class="form-section"
+                    >
+                        <label class="form-label">
+                            Connected Through *
+                        </label>
+                        <div class="search-input-wrapper">
+                            <input
+                                v-model.trim="form.connectedThroughDisplay"
+                                type="text"
+                                class="form-input"
+                                :required="form.connectionType === 'through' || form.connectionType === '3plus'"
+                                placeholder="Search for a connection..."
+                                @input="searchConnectedThrough"
+                                @focus="showConnectedThroughDropdown = true"
+                                @blur="hideConnectedThroughDropdown"
+                            />
+                            <ul
+                                v-if="
+                                    showConnectedThroughDropdown &&
+                                    connectedThroughResults.length > 0
+                                "
+                                class="dropdown"
                             >
-                                <label class="form-label">
-                                    Connected Through *
-                                </label>
-                                <div class="search-input-wrapper">
-                                    <input
-                                        v-model.trim="form.connectedThroughDisplay"
-                                        type="text"
-                                        class="form-input"
-                                        :required="form.connectionType === 'through'"
-                                        placeholder="Search for a connection..."
-                                        @input="searchConnectedThrough"
-                                        @focus="showConnectedThroughDropdown = true"
-                                        @blur="hideConnectedThroughDropdown"
-                                    />
-                                    <ul
-                                        v-if="
-                                            showConnectedThroughDropdown &&
-                                            connectedThroughResults.length > 0
-                                        "
-                                        class="dropdown"
-                                    >
-                                        <li
-                                            v-for="result in connectedThroughResults"
-                                            :key="result._id"
-                                            @mousedown="selectConnectedThrough(result)"
-                                        >
-                                            {{
-                                                (
-                                                    (result.firstName || "") +
-                                                    " " +
-                                                    (result.lastName || "")
-                                                ).trim() ||
-                                                result.label ||
-                                                result._id
-                                            }}
-                                        </li>
-                                    </ul>
-                                </div>
-                                <p class="form-hint">
-                                    Search for the person who connects you to this
-                                    new connection.
-                                </p>
-                            </div>
+                                <li
+                                    v-for="result in connectedThroughResults"
+                                    :key="result._id"
+                                    @mousedown="selectConnectedThrough(result)"
+                                >
+                                    {{
+                                        (
+                                            (result.firstName || "") +
+                                            " " +
+                                            (result.lastName || "")
+                                        ).trim() ||
+                                        result.label ||
+                                        result._id
+                                    }}
+                                </li>
+                            </ul>
                         </div>
+                        <p class="form-hint">
+                            {{
+                                form.connectionType === "through"
+                                    ? "Search for the person who connects you to this new connection (2nd degree)."
+                                    : "Search for the person who connects to this new connection (3+ degree). No edge will be created from you to this intermediate person."
+                            }}
+                        </p>
                     </div>
 
                     <div class="form-actions">
                         <button
                             type="button"
                             class="btn-primary"
-                            :disabled="saving || !form.firstName.trim() || !form.lastName.trim()"
+                            :disabled="
+                                saving ||
+                                !form.firstName.trim() ||
+                                !form.lastName.trim()
+                            "
                             @click="handleSubmit"
                         >
                             <i class="fa-solid fa-save"></i>
@@ -179,23 +176,24 @@
 import { ref } from "vue";
 import { MultiSourceNetworkAPI } from "@/services/conceptClient";
 import { useAuthStore } from "@/stores/useAuthStore";
+import { useAvatarStore } from "@/stores/useAvatarStore";
 
 const auth = useAuthStore();
+const avatarStore = useAvatarStore();
 const saving = ref(false);
-const showAdvanced = ref(false);
 const showConnectedThroughDropdown = ref(false);
 const connectedThroughResults = ref<Array<Record<string, any>>>([]);
 
 const form = ref({
-    firstName: "",
-    lastName: "",
-    location: "",
-    company: "",
-    jobTitle: "",
-    headline: "",
-    connectionType: "direct" as "direct" | "through",
-    connectedThroughId: "",
-    connectedThroughDisplay: "",
+      firstName: "",
+      lastName: "",
+      location: "",
+      company: "",
+      jobTitle: "",
+      headline: "",
+      connectionType: "direct" as "direct" | "through" | "3plus",
+      connectedThroughId: "",
+      connectedThroughDisplay: "",
 });
 
 const emit = defineEmits<{
@@ -242,8 +240,17 @@ function hideConnectedThroughDropdown() {
 }
 
 async function handleSubmit(event?: Event) {
+    console.log("[AddConnection] handleSubmit called", {
+        event,
+        form: form.value,
+        userId: auth.userId,
+    });
+
+  if (event) {
+    event.preventDefault();
+  }
     console.log("[AddConnection] handleSubmit called", { event, form: form.value, userId: auth.userId });
-    
+
     if (event) {
         event.preventDefault();
     }
@@ -255,18 +262,27 @@ async function handleSubmit(event?: Event) {
     }
 
     if (!form.value.firstName.trim() || !form.value.lastName.trim()) {
-        console.error("[AddConnection] Missing firstName or lastName", { 
-            firstName: form.value.firstName, 
-            lastName: form.value.lastName 
-        });
-        alert("First name and last name are required.");
-        return;
-    }
+        console.error("[AddConnection] Missing firstName or lastName", {
+            firstName: form.value.firstName,
+            lastName: form.value.lastName,
+    });
+    alert("First name and last name are required.");
+    return;
+  }
+    if (!form.value.firstName.trim() || !form.value.lastName.trim()) {
+        console.error("[AddConnection] Missing firstName or lastName", {
+            firstName: form.value.firstName,
+            lastName: form.value.lastName
+            });
+            alert("First name and last name are required.");
+            return;
+      }
 
     // Validate connected through if using that option
     if (
-        form.value.connectionType === "through" &&
-        (!form.value.connectedThroughId || !form.value.connectedThroughDisplay.trim())
+        (form.value.connectionType === "through" || form.value.connectionType === "3plus") &&
+        (!form.value.connectedThroughId ||
+            !form.value.connectedThroughDisplay.trim())
     ) {
         console.error("[AddConnection] Missing intermediate connection");
         alert("Please select who you're connected through.");
@@ -278,7 +294,9 @@ async function handleSubmit(event?: Event) {
 
     try {
         // Step 0: Ensure network exists and root is set (replicating old flow requirement)
-        console.log("[AddConnection] Step 0: Ensuring network exists and root is set...");
+        console.log(
+            "[AddConnection] Step 0: Ensuring network exists and root is set..."
+        );
         try {
             // Try to create network with user as root (will fail silently if network already exists)
             await MultiSourceNetworkAPI.createNetwork({
@@ -297,7 +315,9 @@ async function handleSubmit(event?: Event) {
                 console.log("[AddConnection] Root node set");
             } catch (rootError: any) {
                 // Root might already be set, that's fine
-                console.log("[AddConnection] Network and root already exist or set");
+                console.log(
+                    "[AddConnection] Network and root already exist or set"
+                );
             }
         }
 
@@ -306,31 +326,39 @@ async function handleSubmit(event?: Event) {
         const label = `${form.value.firstName} ${form.value.lastName}`.trim();
         const headline = form.value.headline || form.value.jobTitle || "";
 
+        // Generate default two-letter avatar for the new node
+        const avatarUrl = avatarStore.getLetterAvatar(label);
+
         const createPayload: Record<string, unknown> = {
             owner: auth.userId,
             firstName: form.value.firstName.trim(),
             lastName: form.value.lastName.trim(),
             label: label,
             headline: headline,
-            location: form.value.location.trim() || undefined,
-            currentCompany: form.value.company.trim() || undefined,
-            currentPosition: form.value.jobTitle.trim() || undefined,
+            // Always send string values (empty string if not provided)
+            location: form.value.location.trim(),
+            currentCompany: form.value.company.trim(),
+            currentPosition: form.value.jobTitle.trim(),
+            avatarUrl: avatarUrl,
             // Don't pass sourceIds for manual additions - this causes deduplication
             // Each manual addition should create a new node
         };
 
-        console.log("[AddConnection] createNodeForUser payload:", createPayload);
-        const created = await MultiSourceNetworkAPI.createNodeForUser(
-            createPayload as any
+            console.log(
+            "[AddConnection] createNodeForUser payload:",
+            createPayload
         );
-        console.log("[AddConnection] createNodeForUser response:", created);
-        
+            const created = await MultiSourceNetworkAPI.createNodeForUser(
+                  createPayload as any
+            );
+            console.log("[AddConnection] createNodeForUser response:", created);
+
         if (!created || !("node" in created)) {
             const errorMsg = String((created as any)?.error || "createNodeForUser failed");
             console.error("[AddConnection] createNodeForUser failed:", errorMsg, created);
             throw new Error(errorMsg);
         }
-        
+
         const nodeId = (created as any).node as string;
         console.log("[AddConnection] Node created with ID:", nodeId);
 
@@ -345,8 +373,6 @@ async function handleSubmit(event?: Event) {
 
         console.log("[AddConnection] Step 3: Creating edge(s)...");
         // Step 3: Create edge(s) based on connection type
-        // By default, connect to the current user (auth.userId)
-        // If "connected through" is specified, connect through that intermediate node
         if (form.value.connectionType === "direct") {
             // Direct connection: user -> new connection (1st degree)
             console.log("[AddConnection] Creating direct edge from", auth.userId, "to", nodeId);
@@ -357,7 +383,7 @@ async function handleSubmit(event?: Event) {
                 source: "manual",
             });
             console.log("[AddConnection] Direct edge created");
-        } else {
+        } else if (form.value.connectionType === "through") {
             // Connected through someone: user -> intermediate -> new connection (2nd degree)
             const intermediateId = form.value.connectedThroughId;
 
@@ -373,7 +399,9 @@ async function handleSubmit(event?: Event) {
                     source: "manual",
                 });
             } catch (e) {
-                console.log("[AddConnection] Intermediate may already be in network");
+                console.log(
+                    "[AddConnection] Intermediate may already be in network"
+                );
             }
 
             // Create edge from intermediate to new connection
@@ -394,8 +422,39 @@ async function handleSubmit(event?: Event) {
                 });
             } catch (e) {
                 // Edge may already exist, that's fine
-                console.log("[AddConnection] User-to-intermediate edge may already exist");
+                console.log(
+                    "[AddConnection] User-to-intermediate edge may already exist"
+                );
             }
+        } else if (form.value.connectionType === "3plus") {
+            // 3+ degree connection: intermediate -> new connection (NO edge from user to intermediate, NO edge from user to new connection)
+            const intermediateId = form.value.connectedThroughId;
+
+            if (!intermediateId) {
+                throw new Error("Intermediate connection ID is required");
+            }
+
+            // Ensure intermediate is in network
+            try {
+                await MultiSourceNetworkAPI.addNodeToNetwork({
+                    owner: auth.userId,
+                    node: intermediateId,
+                    source: "manual",
+                });
+            } catch (e) {
+                console.log("[AddConnection] Intermediate may already be in network");
+            }
+
+            // Only create edge from intermediate to new connection
+            // DO NOT create edge from user to intermediate
+            // DO NOT create edge from user to new connection
+            await MultiSourceNetworkAPI.addEdge({
+                owner: auth.userId,
+                from: intermediateId,
+                to: nodeId,
+                source: "manual",
+            });
+            console.log("[AddConnection] 3+ degree edge created (intermediate -> new connection only)");
         }
 
         console.log("[AddConnection] SUCCESS - All steps completed!");
@@ -412,7 +471,6 @@ async function handleSubmit(event?: Event) {
             connectedThroughId: "",
             connectedThroughDisplay: "",
         };
-        showAdvanced.value = false;
         connectedThroughResults.value = [];
 
         emit("success");
@@ -427,7 +485,9 @@ async function handleSubmit(event?: Event) {
         alert(errorMessage);
     } finally {
         saving.value = false;
-        console.log("[AddConnection] handleSubmit finished, saving set to false");
+        console.log(
+            "[AddConnection] handleSubmit finished, saving set to false"
+        );
     }
 }
 </script>
@@ -561,10 +621,11 @@ async function handleSubmit(event?: Event) {
     gap: 0.5rem;
 }
 
-.btn-primary:hover:not(:disabled) {
-    background: var(--color-navy-700);
+.modal-content .form-actions .btn-primary:hover:not(:disabled) {
+    background: #e6f4ff;
+    color: #003b6d;
     transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
 }
 
 .btn-primary:disabled {
@@ -587,43 +648,6 @@ async function handleSubmit(event?: Event) {
     background: #e2e8f0;
 }
 
-.advanced-section {
-    margin-top: 1rem;
-    padding-top: 1.5rem;
-    border-top: 1px solid rgba(15, 23, 42, 0.1);
-}
-
-.advanced-toggle {
-    margin-bottom: 1rem;
-}
-
-.advanced-toggle-btn {
-    background: transparent;
-    border: none;
-    color: var(--color-navy-600);
-    font-weight: 600;
-    font-size: 0.875rem;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 0;
-    transition: color 0.2s ease;
-}
-
-.advanced-toggle-btn:hover {
-    color: var(--color-navy-900);
-}
-
-.advanced-content {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-    padding: 1rem;
-    background: #f8fafc;
-    border-radius: 0.5rem;
-    border: 1px solid rgba(15, 23, 42, 0.08);
-}
 
 .form-hint {
     margin: 0;
@@ -667,4 +691,3 @@ select.form-input {
     cursor: pointer;
 }
 </style>
-

@@ -91,21 +91,30 @@
 
                 <!-- Active Filters and Results Count -->
                 <div class="filters-section">
-                    <div class="active-filters">
-                        <div
-                            v-for="(filter, index) in activeFilters"
-                            :key="index"
-                            class="filter-chip"
-                        >
-                            <span>{{ filter.label }}: {{ filter.value }}</span>
-                            <button
-                                @click="removeFilter(index)"
-                                class="filter-remove"
-                                aria-label="Remove filter"
+                    <div class="active-filters-container" v-if="activeFilters.length > 0">
+                        <div class="active-filters">
+                            <div
+                                v-for="(filter, index) in activeFilters"
+                                :key="index"
+                                class="filter-chip"
                             >
-                                <i class="fa-solid fa-xmark"></i>
-                            </button>
+                                <span>{{ filter.label }}: {{ filter.value }}</span>
+                                <button
+                                    @click="removeFilter(index)"
+                                    class="filter-remove"
+                                    aria-label="Remove filter"
+                                >
+                                    <i class="fa-solid fa-xmark"></i>
+                                </button>
+                            </div>
                         </div>
+                        <button
+                            @click="clearAllFilters"
+                            class="clear-all-filters-btn"
+                            aria-label="Clear all filters"
+                        >
+                            Clear all
+                        </button>
                     </div>
                     <p class="results-count">
                         {{
@@ -211,17 +220,24 @@
                     <!-- Profile Picture Upload -->
                     <div class="form-section">
                         <label class="form-label">Profile Picture</label>
-                        <div
-                            class="upload-area"
-                            :class="{
-                                'drag-over': isDragging,
-                                'has-image': editForm.profilePictureUrl,
-                            }"
-                            @dragover.prevent="handleDragOver"
-                            @dragleave.prevent="handleDragLeave"
-                            @drop.prevent="handleDrop"
-                            @click="triggerFilePicker"
-                        >
+                        <div class="profile-picture-container">
+                            <div v-if="editForm.profilePictureUrl" class="profile-picture-preview">
+                                <img
+                                    :src="editForm.profilePictureUrl"
+                                    alt="Profile preview"
+                                    @error="handleImageError"
+                                />
+                            </div>
+                            <div v-else class="profile-picture-placeholder">
+                                <i class="fa-solid fa-user"></i>
+                            </div>
+                            <button
+                                type="button"
+                                class="change-pic-btn"
+                                @click="triggerFilePicker"
+                            >
+                                Change Pic
+                            </button>
                             <input
                                 ref="fileInput"
                                 type="file"
@@ -229,36 +245,6 @@
                                 class="file-input"
                                 @change="handleFileChange"
                             />
-                            <div
-                                v-if="!editForm.profilePictureUrl"
-                                class="upload-placeholder"
-                            >
-                                <i
-                                    class="fa-solid fa-cloud-arrow-up upload-icon"
-                                ></i>
-                                <p class="upload-text">
-                                    Drag and drop an image here, or click to
-                                    browse
-                                </p>
-                                <p class="upload-hint">
-                                    Supports JPG, PNG, GIF (max 5MB)
-                                </p>
-                            </div>
-                            <div v-else class="upload-preview">
-                                <img
-                                    :src="editForm.profilePictureUrl"
-                                    alt="Preview"
-                                    @error="handleImageError"
-                                />
-                                <button
-                                    type="button"
-                                    class="remove-image-btn"
-                                    @click.stop="removeImage"
-                                    aria-label="Remove image"
-                                >
-                                    <i class="fa-solid fa-xmark"></i>
-                                </button>
-                            </div>
                         </div>
                         <div v-if="uploadError" class="upload-error">
                             <i class="fa-solid fa-exclamation-circle"></i>
@@ -465,6 +451,17 @@
                         </div>
 
                         <div
+                            v-if="selectedProfileData.location"
+                            class="detail-section"
+                        >
+                            <h3 class="detail-title">
+                                <i class="fa-solid fa-map-marker-alt"></i>
+                                Location
+                            </h3>
+                            <p>{{ selectedProfileData.location }}</p>
+                        </div>
+
+                        <div
                             v-if="selectedProfileData.industry"
                             class="detail-section"
                         >
@@ -642,7 +639,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, onBeforeUnmount } from "vue";
 import {
     MultiSourceNetworkAPI,
     type AdjacencyMap,
@@ -671,7 +668,6 @@ const adjacency = ref<AdjacencyMap | null>(null);
 const selectedProfileId = ref<string | null>(null);
 const isEditing = ref(false);
 const saving = ref(false);
-const isDragging = ref(false);
 const uploadError = ref("");
 const fileInput = ref<HTMLInputElement | null>(null);
 const editForm = ref({
@@ -935,41 +931,41 @@ const selectedProfileData = computed(() => {
         displayName: node.displayName,
         headline: linkedInConn?.headline || profileData.headline || "",
         currentCompany:
-            linkedInConn?.currentCompany || 
-            profileData.currentCompany || 
-            profileData.company || 
+            linkedInConn?.currentCompany ||
+            profileData.currentCompany ||
+            profileData.company ||
             "",
-        currentPosition: 
-            linkedInConn?.currentPosition || 
-            profileData.currentPosition || 
+        currentPosition:
+            linkedInConn?.currentPosition ||
+            profileData.currentPosition ||
             "",
-        location: 
-            linkedInConn?.location || 
-            profileData.location || 
+        location:
+            linkedInConn?.location ||
+            profileData.location ||
             "",
-        industry: 
-            linkedInConn?.industry || 
-            profileData.industry || 
+        industry:
+            linkedInConn?.industry ||
+            profileData.industry ||
             "",
-        summary: 
-            linkedInConn?.summary || 
-            profileData.summary || 
+        summary:
+            linkedInConn?.summary ||
+            profileData.summary ||
             "",
-        skills: 
-            linkedInConn?.skills || 
-            profileData.skills || 
+        skills:
+            linkedInConn?.skills ||
+            profileData.skills ||
             [],
-        experience: 
-            linkedInConn?.experience || 
-            profileData.experience || 
+        experience:
+            linkedInConn?.experience ||
+            profileData.experience ||
             [],
-        education: 
-            linkedInConn?.education || 
-            profileData.education || 
+        education:
+            linkedInConn?.education ||
+            profileData.education ||
             [],
-        profileUrl: 
-            linkedInConn?.profileUrl || 
-            profileData.profileUrl || 
+        profileUrl:
+            linkedInConn?.profileUrl ||
+            profileData.profileUrl ||
             "",
         avatarUrl: node.avatarUrl,
         initials: node.initials,
@@ -1211,6 +1207,10 @@ function removeFilter(index: number) {
     activeFilters.value.splice(index, 1);
 }
 
+function clearAllFilters() {
+    activeFilters.value = [];
+}
+
 function hideAutocomplete() {
     setTimeout(() => {
         showAutocompleteDropdown.value = false;
@@ -1220,7 +1220,12 @@ function hideAutocomplete() {
 
 function handleImageError(event: Event) {
     const img = event.target as HTMLImageElement;
-    img.src = avatarStore.DEFAULT_AVATAR;
+    // Hide the image - the placeholder will show via v-else
+    img.style.display = "none";
+    const placeholder = img.parentElement?.querySelector(".avatar-placeholder, .avatar-placeholder-large") as HTMLElement;
+    if (placeholder) {
+        placeholder.style.display = "flex";
+    }
 }
 
 function openProfileModal(nodeId: string) {
@@ -1264,28 +1269,7 @@ function triggerFilePicker() {
     fileInput.value?.click();
 }
 
-function handleDragOver(event: DragEvent) {
-    isDragging.value = true;
-    event.preventDefault();
-}
-
-function handleDragLeave(event: DragEvent) {
-    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-    const x = event.clientX;
-    const y = event.clientY;
-
-    if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
-        isDragging.value = false;
-    }
-}
-
-function handleDrop(event: DragEvent) {
-    isDragging.value = false;
-    const files = event.dataTransfer?.files;
-    if (files && files.length > 0) {
-        processFile(files[0]);
-    }
-}
+// Drag and drop handlers removed - not used in this component
 
 function handleFileChange(event: Event) {
     const target = event.target as HTMLInputElement;
@@ -1326,13 +1310,7 @@ function processFile(file: File) {
     reader.readAsDataURL(file);
 }
 
-function removeImage() {
-    editForm.value.profilePictureUrl = "";
-    uploadError.value = "";
-    if (fileInput.value) {
-        fileInput.value.value = "";
-    }
-}
+// removeImage function removed - not used in this component
 
 async function saveProfile() {
     if (!selectedProfileId.value) return;
@@ -1409,21 +1387,35 @@ async function saveProfile() {
 }
 
 function getInitials(text: string): string {
-    if (!text) return "?";
-    const words = text.trim().split(/\s+/);
-    if (words.length >= 2) {
-        return (words[0][0] + words[1][0]).toUpperCase();
+    if (!text) return "??";
+    const trimmed = text.trim();
+    if (trimmed.length === 0) return "??";
+
+    // Split by spaces to get name parts
+    const parts = trimmed.split(/\s+/).filter(part => part.length > 0);
+
+    if (parts.length === 0) return "??";
+
+    // If only one part, use first letter twice
+    if (parts.length === 1) {
+        const letter = parts[0][0].toUpperCase();
+        return letter + letter;
     }
-    return text.substring(0, 2).toUpperCase();
+
+    // Get first letter of first name and first letter of last name
+    const firstLetter = parts[0][0].toUpperCase();
+    const lastLetter = parts[parts.length - 1][0].toUpperCase();
+    return firstLetter + lastLetter;
 }
 
-async function fetchNodeProfiles(nodeIds: string[]) {
+async function fetchNodeProfiles(nodeIds: string[], forceRefresh: string[] = []) {
     const profilePromises = nodeIds.map(async (nodeId) => {
-        if (nodeProfiles.value[nodeId]) return; // Already fetched
+        // Skip if already cached, unless we're forcing a refresh for this node
+        if (nodeProfiles.value[nodeId] && !forceRefresh.includes(nodeId)) return;
 
         let profile: PublicProfile | undefined;
         let username = nodeId;
-        let avatarUrl = avatarStore.DEFAULT_AVATAR;
+        let avatarUrl = "";
 
         // Try to fetch username from UserAuthentication API
         try {
@@ -1446,11 +1438,14 @@ async function fetchNodeProfiles(nodeIds: string[]) {
 
             if (profile) {
                 const displayName = profile.headline || username;
-                if ((profile as any).profilePictureUrl) {
-                    avatarUrl = (profile as any).profilePictureUrl;
+                // Use profile picture from PublicProfile if available
+                if (profile.profilePictureUrl) {
+                    avatarUrl = profile.profilePictureUrl;
                     avatarStore.setForUser(nodeId, avatarUrl);
                 } else {
-                    avatarUrl = avatarStore.getForUser(nodeId);
+                    const storedAvatar = avatarStore.getForUser(nodeId);
+                    // Use empty string if avatar is default so initials will show
+                    avatarUrl = storedAvatar === avatarStore.DEFAULT_AVATAR ? "" : storedAvatar;
                 }
 
                 nodeProfiles.value[nodeId] = {
@@ -1459,14 +1454,18 @@ async function fetchNodeProfiles(nodeIds: string[]) {
                     username: displayName,
                 };
             } else {
-                avatarUrl = avatarStore.getForUser(nodeId);
+                const storedAvatar = avatarStore.getForUser(nodeId);
+                // Use empty string if avatar is default so initials will show
+                avatarUrl = storedAvatar === avatarStore.DEFAULT_AVATAR ? "" : storedAvatar;
                 nodeProfiles.value[nodeId] = {
                     avatarUrl,
                     username,
                 };
             }
         } catch {
-            avatarUrl = avatarStore.getForUser(nodeId);
+            const storedAvatar = avatarStore.getForUser(nodeId);
+            // Use empty string if avatar is default so initials will show
+            avatarUrl = storedAvatar === avatarStore.DEFAULT_AVATAR ? "" : storedAvatar;
             nodeProfiles.value[nodeId] = {
                 avatarUrl,
                 username,
@@ -1605,7 +1604,7 @@ async function loadNetworkData() {
                         ...nd,
                     },
                     avatarUrl:
-                        (nd.avatarUrl as string) || avatarStore.DEFAULT_AVATAR,
+                        (nd.avatarUrl as string) || avatarStore.getLetterAvatar(nd.label || nd.firstName || id),
                     username: (nd.label as string) || id,
                 };
             });
@@ -1614,7 +1613,8 @@ async function loadNetworkData() {
         }
 
         // Then fetch profiles/usernames for any nodes not already resolved
-        await fetchNodeProfiles(Array.from(allNodeIds));
+        // Always force refresh for current user to get latest profile picture
+        await fetchNodeProfiles(Array.from(allNodeIds), auth.userId ? [auth.userId] : []);
 
         // Build nodes array with proper names
         const nodes: Array<{
@@ -1641,9 +1641,8 @@ async function loadNetworkData() {
                 const fullName = `${firstName} ${lastName}`.trim();
 
                 displayName = fullName || linkedInConn.headline || nodeId;
-                avatarUrl =
-                    linkedInConn.profilePictureUrl ||
-                    avatarStore.DEFAULT_AVATAR;
+                // Use empty string if no profile picture so initials will show
+                avatarUrl = linkedInConn.profilePictureUrl || "";
 
                 // Store in nodeProfiles for company/location filtering
                 nodeProfiles.value[nodeId] = {
@@ -1659,7 +1658,7 @@ async function loadNetworkData() {
                 // Use profile data or fallback. Prefer firstName + lastName when available,
                 // then headline, then username, then node id.
                 const profileData = nodeProfiles.value[nodeId] || {
-                    avatarUrl: avatarStore.DEFAULT_AVATAR,
+                    avatarUrl: "",
                     username: nodeId,
                 };
                 const profile = profileData.profile || {};
@@ -1674,7 +1673,24 @@ async function loadNetworkData() {
                     displayName = profileData.username || nodeId;
                 }
 
-                avatarUrl = profileData.avatarUrl;
+                // For root node (current user), prioritize profile picture from PublicProfile
+                if (nodeId === auth.userId) {
+                    // Root node: use profile picture from PublicProfile if available
+                    const publicProfile = profileData.profile as PublicProfile | undefined;
+                    if (publicProfile?.profilePictureUrl) {
+                        avatarUrl = publicProfile.profilePictureUrl;
+                    } else {
+                        // Use empty string if avatar is default so initials will show
+                        avatarUrl = profileData.avatarUrl === avatarStore.DEFAULT_AVATAR
+                            ? ""
+                            : profileData.avatarUrl;
+                    }
+                } else {
+                    // Use empty string if avatar is default so initials will show
+                    avatarUrl = profileData.avatarUrl === avatarStore.DEFAULT_AVATAR
+                        ? ""
+                        : profileData.avatarUrl;
+                }
             }
 
             const connections = (data[nodeId] || []).length;
@@ -1726,8 +1742,30 @@ async function loadNetworkData() {
     }
 }
 
+// Listen for profile picture updates
+function handleProfilePictureUpdate(event: CustomEvent) {
+    const userId = event.detail?.userId;
+    if (userId && userId === auth.userId) {
+        // Clear cache for current user and refresh
+        delete nodeProfiles.value[userId];
+        // Force refresh the current user's profile
+        fetchNodeProfiles([userId], [userId]).then(() => {
+            // Rebuild nodes to update avatarUrl
+            if (adjacency.value) {
+                loadNetworkData();
+            }
+        });
+    }
+}
+
 onMounted(() => {
     loadNetworkData();
+    // Listen for profile picture updates
+    window.addEventListener('profilePictureUpdated', handleProfilePictureUpdate as EventListener);
+});
+
+onBeforeUnmount(() => {
+    window.removeEventListener('profilePictureUpdated', handleProfilePictureUpdate as EventListener);
 });
 </script>
 
@@ -1857,6 +1895,13 @@ onMounted(() => {
     margin-top: 1rem;
 }
 
+.active-filters-container {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
 .active-filters {
     display: flex;
     flex-wrap: wrap;
@@ -1879,22 +1924,53 @@ onMounted(() => {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 0.125rem;
-    background: transparent;
-    border: none;
+    padding: 0.375rem;
+    background: #dc2626;
+    border: 1px solid #dc2626;
     cursor: pointer;
-    color: #64748b;
+    color: white;
     transition: all 0.2s ease;
-    border-radius: 0.25rem;
+    border-radius: 50%;
+    width: 1.5rem;
+    height: 1.5rem;
+    flex-shrink: 0;
+    margin-left: 0.25rem;
+    position: relative;
+    z-index: 1;
 }
 
 .filter-remove:hover {
-    background: #cbd5e1;
-    color: #1e293b;
+    background: #b91c1c;
+    border-color: #b91c1c;
+    transform: scale(1.1);
 }
 
 .filter-remove i {
-    font-size: 0.625rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: white;
+    position: relative;
+    z-index: 2;
+    display: block;
+    line-height: 1;
+}
+
+.clear-all-filters-btn {
+    padding: 0.5rem 1rem;
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    border-radius: 0.5rem;
+    color: #475569;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.clear-all-filters-btn:hover {
+    background: #e2e8f0;
+    border-color: #94a3b8;
+    color: #1e293b;
 }
 
 .results-count {
@@ -2183,7 +2259,7 @@ onMounted(() => {
 }
 
 .btn-edit:hover {
-    background: var(--color-navy-700);
+    background: #003B6D;
     transform: translateY(-1px);
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
@@ -2342,38 +2418,63 @@ onMounted(() => {
     min-height: 100px;
 }
 
-/* File Upload Area */
-.upload-area {
-    position: relative;
-    border: 2px dashed #cbd5e1;
-    border-radius: 0.75rem;
-    padding: 2rem;
-    text-align: center;
-    cursor: pointer;
-    transition: all 0.2s ease;
+/* Profile Picture Upload */
+.profile-picture-container {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+}
+
+.profile-picture-preview {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 2px solid #e2e8f0;
     background: #f8fafc;
-    min-height: 200px;
     display: flex;
     align-items: center;
     justify-content: center;
 }
 
-.upload-area:hover {
-    border-color: var(--color-navy-400);
-    background: #f1f5f9;
+.profile-picture-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
 
-.upload-area.drag-over {
-    border-color: var(--color-navy-600);
+.profile-picture-placeholder {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
     background: #e2e8f0;
-    transform: scale(1.02);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #94a3b8;
+    font-size: 2rem;
 }
 
-.upload-area.has-image {
-    padding: 0;
-    border: 2px solid #e2e8f0;
-    background: white;
-    min-height: auto;
+.change-pic-btn {
+    padding: 0.5rem 1rem;
+    background: var(--color-navy-600);
+    color: white;
+    border: none;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.change-pic-btn:hover {
+    background: var(--color-navy-700);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
 
 .file-input {
@@ -2382,71 +2483,6 @@ onMounted(() => {
     height: 0;
     opacity: 0;
     pointer-events: none;
-}
-
-.upload-placeholder {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.75rem;
-}
-
-.upload-icon {
-    font-size: 3rem;
-    color: #94a3b8;
-}
-
-.upload-text {
-    margin: 0;
-    font-size: 1rem;
-    font-weight: 600;
-    color: #475569;
-}
-
-.upload-hint {
-    margin: 0;
-    font-size: 0.875rem;
-    color: #94a3b8;
-}
-
-.upload-preview {
-    position: relative;
-    width: 100%;
-    height: 100%;
-    min-height: 200px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.upload-preview img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    border-radius: 0.5rem;
-}
-
-.remove-image-btn {
-    position: absolute;
-    top: 0.5rem;
-    right: 0.5rem;
-    width: 2rem;
-    height: 2rem;
-    border-radius: 50%;
-    background: rgba(0, 0, 0, 0.7);
-    color: white;
-    border: none;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s ease;
-    z-index: 10;
-}
-
-.remove-image-btn:hover {
-    background: rgba(0, 0, 0, 0.9);
-    transform: scale(1.1);
 }
 
 .upload-error {
@@ -2488,7 +2524,7 @@ onMounted(() => {
 }
 
 .btn-primary:hover:not(:disabled) {
-    background: var(--color-navy-700);
+    background: #003B6D;
     transform: translateY(-1px);
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }

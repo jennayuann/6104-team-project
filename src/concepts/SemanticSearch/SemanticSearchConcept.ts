@@ -25,6 +25,11 @@ interface SearchQueries {
 const SEMANTIC_SERVICE_URL = Deno.env.get("SEMANTIC_SERVICE_URL") ??
   "http://localhost:8001";
 
+// Minimum relevance score required for a semantic match to be
+// surfaced in searchConnections. Higher values mean fewer but
+// more confident results.
+const MIN_CONNECTION_SCORE = 0.25;
+
 async function semanticIndex(
   owner: Owner,
   items: Array<
@@ -254,6 +259,35 @@ export default class SemanticSearchConcept {
   }
 
   /**
+   * reindexAllOwners (): Empty
+   *
+   * **requires** txtai semantic service is reachable.
+   *
+   * **effects** for each distinct owner in IndexedItems, re-sends all of
+   * their indexed items to the external semantic search service. This is
+   * useful when the txtai index has been lost or restarted while the
+   * MongoDB-backed metadata remains intact.
+   */
+  async reindexAllOwners({}: {}): Promise<Empty> {
+    const owners = await this.indexedItems.distinct("owner", {});
+
+    for (const owner of owners as Owner[]) {
+      const ownerDocs = await this.indexedItems.find({ owner }).toArray();
+      if (!ownerDocs.length) continue;
+
+      await semanticIndex(
+        owner,
+        ownerDocs.map((doc) => ({
+          item: doc.item,
+          text: doc.text,
+        })),
+      );
+    }
+
+    return {};
+  }
+
+  /**
    * searchConnections (owner: Owner, queryText: String, limit?: Number): { results: { connectionId, score, text, connection }[] }
    *
    * **requires** queryText is not empty.
@@ -300,8 +334,16 @@ export default class SemanticSearchConcept {
     const rawResults = await semanticSearch(owner, trimmed, {}, limit);
     if (!rawResults.length) return { results: [] };
 
+    // 1a. Drop low-confidence matches so obviously irrelevant
+    // hits don't show up at all.
+    const filteredRaw = rawResults.filter((r) => {
+      const score = Number.isFinite(r.score) ? r.score : 0;
+      return score >= MIN_CONNECTION_SCORE;
+    });
+    if (!filteredRaw.length) return { results: [] };
+
     // 2. Fetch matching LinkedIn connections by _id where possible.
-    const ids = rawResults
+    const ids = filteredRaw
       .map((r) => String(r.item))
       .filter((id) =>
         id && !["FULLSTACK_ID", "BACKEND_ID", "ML_ID"].includes(id)
@@ -330,13 +372,89 @@ export default class SemanticSearchConcept {
       })
       .toArray();
 
+    // Also fetch any MultiSourceNetwork canonical nodes corresponding to
+    // semantic item ids that are not backed by LinkedInImport.connections.
+    const linkedInIds = new Set(docs.map((doc) => String(doc._id)));
+    const missingIds = ids.filter((id) => !linkedInIds.has(id));
+
+    const membershipsCollection = this.db.collection<
+      { owner: unknown; node: string }
+    >("MultiSourceNetwork.memberships");
+    const nodesCollection = this.db.collection<
+      {
+        _id: string;
+        firstName?: string;
+        lastName?: string;
+        headline?: string | null;
+        location?: string | null;
+        industry?: string | null;
+        currentPosition?: string | null;
+        currentCompany?: string | null;
+        profileUrl?: string | null;
+        profilePictureUrl?: string | null;
+        avatarUrl?: string | null;
+        summary?: string | null;
+      }
+    >("MultiSourceNetwork.nodes");
+
+    let nodeDocs: Array<{
+      _id: string;
+      firstName?: string;
+      lastName?: string;
+      headline?: string | null;
+      location?: string | null;
+      industry?: string | null;
+      currentPosition?: string | null;
+      currentCompany?: string | null;
+      profileUrl?: string | null;
+      profilePictureUrl?: string | null;
+      avatarUrl?: string | null;
+      summary?: string | null;
+    }> = [];
+
+    if (missingIds.length > 0) {
+      const relevantMemberships = await membershipsCollection
+        .find({
+          owner: owner as unknown,
+          node: { $in: missingIds as string[] },
+        })
+        .toArray();
+
+      const memberNodeIds = relevantMemberships.map((m) => String(m.node));
+      if (memberNodeIds.length > 0) {
+        nodeDocs = await nodesCollection
+          .find({ _id: { $in: memberNodeIds as string[] } })
+          .toArray();
+      }
+    }
+
     // deno-lint-ignore no-explicit-any
     const byId = new Map<string, any>(
       docs.map((doc) => [String(doc._id), doc]),
     );
 
-    // 3. Build rich results in the original semantic order.
-    const results = rawResults.map((r) => {
+    for (const node of nodeDocs) {
+      const key = String(node._id);
+      if (!byId.has(key)) {
+        byId.set(key, {
+          _id: key,
+          firstName: node.firstName,
+          lastName: node.lastName,
+          headline: node.headline ?? null,
+          location: node.location ?? null,
+          industry: node.industry ?? null,
+          currentPosition: node.currentPosition ?? null,
+          currentCompany: node.currentCompany ?? null,
+          profileUrl: node.profileUrl ?? null,
+          // Prefer explicit profilePictureUrl, fall back to avatarUrl
+          profilePictureUrl: node.profilePictureUrl ?? node.avatarUrl ?? null,
+          summary: node.summary ?? null,
+        });
+      }
+    }
+
+    // 3. Build rich results in the filtered semantic order.
+    const results = filteredRaw.map((r) => {
       const connectionId = String(r.item);
       const score = Number.isFinite(r.score) ? r.score : 0;
       const doc = byId.get(connectionId);

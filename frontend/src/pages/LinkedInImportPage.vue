@@ -60,17 +60,10 @@
                 </button>
             </div>
 
-            <div v-if="importResult" class="import-result">
+            <div v-if="importResult && importResult.error" class="import-result">
                 <h3>Import Result</h3>
                 <p><strong>Status:</strong> {{ importResult.status }}</p>
-                <p v-if="importResult.importJob">
-                    <strong>Import Job ID:</strong> {{ importResult.importJob }}
-                </p>
-                <p v-if="importResult.connectionsImported !== undefined">
-                    <strong>Connections Imported:</strong>
-                    {{ importResult.connectionsImported }}
-                </p>
-                <p v-if="importResult.error" class="error-text">
+                <p class="error-text">
                     <strong>Error:</strong> {{ importResult.error }}
                 </p>
             </div>
@@ -235,15 +228,12 @@ async function handleUpload() {
 
         importResult.value = {
             status: "success",
-            importJob: result.importJob,
-            connectionsImported: result.connectionsImported,
-            connections: result.connections,
         };
 
-        showBanner(
-            "success",
-            `Successfully imported ${result.connectionsImported} connections!`
-        );
+        showBanner("success", "Success");
+
+        // Trigger tooltip to show network graph button
+        window.dispatchEvent(new CustomEvent("csvImportCompleted"));
     } catch (error) {
         const errorMessage = formatError(error);
         importResult.value = {
@@ -317,7 +307,7 @@ function formatError(error: unknown): string {
 }
 
 .file-input-label:hover:not(.disabled) {
-    background: var(--primary-hover, #0056b3);
+    background: #003B6D;
 }
 
 .file-input-label.disabled {
@@ -352,7 +342,7 @@ function formatError(error: unknown): string {
 }
 
 .upload-btn:hover:not(:disabled) {
-    background: var(--success-hover, #218838);
+    background: #003B6D;
 }
 
 .upload-btn:disabled {
