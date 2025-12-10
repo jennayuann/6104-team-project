@@ -16,12 +16,19 @@
                     <div class="loading-icon">📡</div>
                     <p>Loading connection data...</p>
                 </div>
-                <form v-else @submit.prevent="handleSubmit" class="connection-form">
+                <form
+                    v-else
+                    @submit.prevent="handleSubmit"
+                    class="connection-form"
+                >
                     <!-- Profile Picture Upload -->
                     <div class="form-section">
                         <label class="form-label">Profile Picture</label>
                         <div class="profile-picture-container">
-                            <div v-if="form.avatarUrl" class="profile-picture-preview">
+                            <div
+                                v-if="form.avatarUrl"
+                                class="profile-picture-preview"
+                            >
                                 <img
                                     :src="form.avatarUrl"
                                     alt="Profile preview"
@@ -36,7 +43,7 @@
                                 class="change-profile-pic-btn"
                                 @click="triggerFilePicker"
                             >
-                                Change Profile Picture
+                                Upload Profile Picture
                             </button>
                             <input
                                 ref="fileInput"
@@ -259,7 +266,10 @@ async function handleSubmit() {
         emit("close");
     } catch (err) {
         console.error("Error updating connection:", err);
-        const errorMessage = err instanceof Error ? err.message : "Failed to update connection. Please try again.";
+        const errorMessage =
+            err instanceof Error
+                ? err.message
+                : "Failed to update connection. Please try again.";
         error.value = errorMessage;
     } finally {
         saving.value = false;
@@ -269,7 +279,6 @@ async function handleSubmit() {
 function triggerFilePicker() {
     fileInput.value?.click();
 }
-
 
 function handleFileChange(event: Event) {
     const target = event.target as HTMLInputElement;
@@ -480,7 +489,7 @@ onMounted(() => {
 }
 
 .btn-primary:hover:not(:disabled) {
-    background: #003B6D;
+    background: #003b6d;
     transform: translateY(-1px);
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
@@ -564,7 +573,7 @@ onMounted(() => {
 }
 
 .change-profile-pic-btn:hover {
-    background: #003B6D;
+    background: #003b6d;
     transform: translateY(-1px);
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }

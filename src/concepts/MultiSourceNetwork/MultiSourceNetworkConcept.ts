@@ -803,20 +803,23 @@ export default class MultiSourceNetworkConcept {
         });
         if (existing) {
           const nodeId = (existing._id as unknown) as ID;
-          // ensure membership exists
+          // If the node exists globally but the owner does not yet have a membership
+          // for it, DO NOT attach the global node to the owner automatically.
+          // Creating a membership would cause cross-account sharing of the
+          // same canonical node. Instead, only reuse an existing node when the
+          // owner already has a membership for it. Otherwise, allow the flow to
+          // fall through so we create a new owner-scoped node below.
           const existingMembership = await this.memberships.findOne({
             owner,
             node: nodeId,
           });
-          if (!existingMembership) {
-            await this.memberships.insertOne({
-              _id: freshID(),
-              owner,
-              node: nodeId,
-              sources: { ["user" as unknown as Source]: true },
-            });
+          if (existingMembership) {
+            return { node: nodeId };
           }
-          return { node: nodeId };
+          console.log(
+            `[MultiSourceNetwork] createNodeForUser: found global node ${nodeId} for sourceId but no membership for owner ${owner}; creating owner-specific node instead`,
+          );
+          // do not return — continue to create a fresh node for this owner
         }
       }
     }
